@@ -114,10 +114,10 @@ def start_servers(api=True, frontend=True):
                     logger.error(f"API directory not found: {api_dir}")
                     success = False
                 else:
+                    # Run the app.py directly to enable advanced logging
                     api_process = subprocess.Popen([
-                        sys.executable, "-m", "uvicorn", "app:app", 
-                        "--host", API_HOST, 
-                        "--port", str(API_PORT)
+                        sys.executable, "app.py",
+                        "--log-level", "debug" if logger.level <= logging.DEBUG else "info"
                     ], cwd=api_dir)
                     
                     # Check if process started successfully

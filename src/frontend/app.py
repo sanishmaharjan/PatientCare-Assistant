@@ -230,72 +230,97 @@ Patient has maintained good glycemic control through medication compliance and d
                     st.error(f"Error: {str(e)}")
                     return None
         
-        # Display patient dataframe with action buttons
+        # Display patient dataframe
         df = pd.DataFrame(patients)
         
-        # Initialize session state for modal
-        if "show_patient_modal" not in st.session_state:
-            st.session_state.show_patient_modal = False
+        # Initialize session state for summary display
+        if "show_patient_summary" not in st.session_state:
+            st.session_state.show_patient_summary = False
         if "selected_patient_id" not in st.session_state:
             st.session_state.selected_patient_id = ""
         if "selected_patient_name" not in st.session_state:
             st.session_state.selected_patient_name = ""
-            
-        # Create a copy of the dataframe for display
-        display_df = df.copy()
         
-        # Add action column with buttons
-        # We'll display the dataframe first, then buttons separately
+        # Display the patient table
         st.dataframe(df, use_container_width=True, hide_index=True)
         
-        # Create columns for patient buttons
-        st.write("Select a patient to view summary:")
-        cols = st.columns(3)
-        for i, patient in enumerate(patients):
-            with cols[i % 3]:
-                if st.button(f"📋 {patient['Name']}", key=f"patient_{patient['Patient ID']}"):
-                    st.session_state.selected_patient_id = patient["Patient ID"]
-                    st.session_state.selected_patient_name = patient["Name"]
-                    st.session_state.show_patient_modal = True
-                    
-        # Show patient summary when selected
-        if st.session_state.show_patient_modal:
-            patient_id = st.session_state.selected_patient_id
-            patient_name = st.session_state.selected_patient_name
+        # Create patient dropdown selector
+        st.markdown("### Select a patient to view summary")
+        
+        # Create options for dropdown - combine name and ID for better UX
+        patient_options = [""] + [f"{patient['Name']} ({patient['Patient ID']})" for patient in patients]
+        
+        # Create the dropdown
+        selected_option = st.selectbox(
+            "Select a patient",
+            options=patient_options,
+            key="patient_dropdown",
+            label_visibility="collapsed"  # Hide the label since we have the header above
+        )
+        
+        # When a patient is selected from dropdown, show their summary
+        if selected_option and selected_option != "":
+            # Extract patient ID from selection string
+            selected_patient_id = selected_option.split("(")[1].replace(")", "")
+            selected_patient = df[df["Patient ID"] == selected_patient_id].iloc[0]
+            selected_patient_name = selected_patient["Name"]
             
-            # Create container for patient summary
-            st.subheader(f"Patient Summary: {patient_name}")
+            # Show patient summary
+            st.session_state.show_patient_summary = True
+            st.session_state.selected_patient_id = selected_patient_id
+            st.session_state.selected_patient_name = selected_patient_name
+            
+            # Create a summary container with border styling
             summary_container = st.container()
             
             with summary_container:
+                st.subheader(f"Patient Summary: {selected_patient_name}")
+                
                 # Create patient card
                 col1, col2 = st.columns([1, 3])
                 with col1:
                     st.image("https://img.icons8.com/color/96/000000/user-male-circle--v1.png", width=100)
                 with col2:
-                    st.subheader(patient_id)
+                    st.subheader(selected_patient_id)
                     st.caption(f"Last updated: {datetime.now().strftime('%B %d, %Y')}")
                 
-                # Get patient data
-                data = generate_patient_summary(patient_id)
-                if data:
-                    st.markdown(data["summary"])
-                    
-                    # Show sources
-                    with st.expander("View Source Documents"):
-                        st.subheader("Sources")
-                        for i, source in enumerate(data["sources"]):
-                            with st.expander(f"Source {i+1}"):
-                                st.write(source["text"])
-                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                
-                # Reset modal state when closed
-                if st.button("Close Summary", key="close_summary"):
-                    st.session_state.show_patient_modal = False
-                    st.rerun()
-                
-                # Add some spacing
-                st.markdown("---")
+                # Make the actual API call to get patient summary using get_patient_summary endpoint
+                with st.spinner("Retrieving patient summary..."):
+                    try:
+                        # Direct API call to the actual endpoint - no mock data
+                        response = httpx.post(
+                            f"{API_URL}/summary",
+                            json={"patient_id": selected_patient_id},
+                            timeout=30.0
+                        )
+                        
+                        if response.status_code == 200:
+                            # Parse the API response
+                            data = response.json()
+                            
+                            # Display the summary
+                            st.markdown(data["summary"])
+                            
+                            # Display sources if available
+                            if "sources" in data and data["sources"]:
+                                with st.expander("View Source Documents"):
+                                    st.subheader("Sources")
+                                    for i, source in enumerate(data["sources"]):
+                                        with st.expander(f"Source {i+1}"):
+                                            st.write(source["text"])
+                                            if "metadata" in source:
+                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                                if "date" in source["metadata"]:
+                                                    st.caption(f"Date: {source['metadata']['date']}")
+                        else:
+                            st.error(f"Error retrieving patient data: {response.status_code}")
+                            st.error(response.text)
+                    except Exception as e:
+                        st.error(f"Error connecting to API: {str(e)}")
+                        st.info("Please make sure the API server is running at " + API_URL)
+            
+            # Add some spacing and separation
+            st.markdown("---")
 
     elif page == "Patient Search":
         st.header("Patient Search")

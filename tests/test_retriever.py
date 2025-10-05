@@ -38,9 +38,9 @@ class TestMedicalRetriever(unittest.TestCase):
         self.mock_collection.get.return_value = {
             "ids": ["doc1_chunk1", "doc1_chunk2"],
             "documents": ["This is document 1, chunk 1", "This is document 1, chunk 2"],
-            "metadatas": [{"source": "doc1", "page": 1}, {"source": "doc1", "page": 2}]
+            "metadatas": [{"source": "doc1", "page": 1, "patient_id": "PATIENT-12345"}, {"source": "doc1", "page": 2, "patient_id": "PATIENT-12345"}]
         }
-        mock_chroma_client.return_value.get_or_create_collection.return_value = self.mock_collection
+        mock_chroma_client.return_value.get_collection.return_value = self.mock_collection
         
         # Create retriever
         self.retriever = MedicalRetriever()
@@ -84,6 +84,57 @@ class TestMedicalRetriever(unittest.TestCase):
         """Test getting patient documents."""
         # Python 3 version has different implementation
         self.skipTest("API has changed in Python 3 version")
+    
+    def test_get_patient_documents_exact_match(self):
+        """Test getting documents for a specific patient ID with exact match."""
+        # Configure mock collection to return data for a specific patient
+        self.mock_collection.get.return_value = {
+            "ids": ["doc1_chunk1", "doc1_chunk2"],
+            "documents": ["Patient PATIENT-12345 has diabetes", "Patient PATIENT-12345 takes metformin"],
+            "metadatas": [
+                {"source": "doc1", "page": 1, "patient_id": "PATIENT-12345"}, 
+                {"source": "doc1", "page": 2, "patient_id": "PATIENT-12345"}
+            ]
+        }
+        
+        # Call method under test
+        result = self.retriever.get_patient_documents("PATIENT-12345")
+        
+        # Verify results
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["metadata"]["patient_id"], "PATIENT-12345")
+        self.assertEqual(result[1]["metadata"]["patient_id"], "PATIENT-12345")
+        
+    def test_get_patient_documents_no_match(self):
+        """Test getting documents for a patient ID that doesn't exist."""
+        # Configure mock collection to return empty result
+        self.mock_collection.get.return_value = {
+            "ids": [],
+            "documents": [],
+            "metadatas": []
+        }
+        
+        # Also configure where_document to return empty
+        self.mock_collection.get.side_effect = [
+            # First call with where={"patient_id": ...}
+            {
+                "ids": [],
+                "documents": [],
+                "metadatas": []
+            },
+            # Second call with where_document={"$contains": ...}
+            {
+                "ids": [],
+                "documents": [],
+                "metadatas": []
+            }
+        ]
+        
+        # Call method under test
+        result = self.retriever.get_patient_documents("NONEXISTENT-ID")
+        
+        # Verify results - should be empty list
+        self.assertEqual(len(result), 0)
 
 
 if __name__ == "__main__":
