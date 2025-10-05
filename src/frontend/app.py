@@ -37,30 +37,19 @@ with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/hospital-3.png", width=100)
     st.title("Healthcare Provider")
     
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
+    # Set default username for the session
+    if "username" not in st.session_state:
+        st.session_state.username = "Provider"
     
-    if not st.session_state.logged_in:
-        st.subheader("Login")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        
-        if st.button("Login"):
-            if username and password:  # Simplified auth for demo
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.rerun()
-            else:
-                st.error("Invalid credentials")
-    else:
-        st.success(f"Logged in as {st.session_state.username}")
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.rerun()
-        
-        # Sidebar navigation
-        st.title("Navigation")
-        page = st.radio("Select a page", ["Dashboard", "Patient Search", "Q&A", "Analysis", "Settings"])
+    # Always set logged_in to True to bypass authentication
+    st.session_state.logged_in = True
+    
+    # Display welcome message
+    st.success(f"Welcome, {st.session_state.username}")
+    
+    # Sidebar navigation
+    st.title("Navigation")
+    page = st.radio("Select a page", ["Dashboard", "Patient Search", "Q&A", "Analysis", "Settings"])
 
 # Only show content if logged in
 if not st.session_state.get("logged_in", False):
@@ -76,38 +65,237 @@ else:
             st.subheader(f"Welcome, Dr. {st.session_state.username}")
             st.write(f"Current Date: {datetime.now().strftime('%B %d, %Y')}")
         with col2:
-            st.metric(label="Patients Today", value="12", delta="3")
+            st.metric(label="Patients Today", value="6", delta="3")
         
-        # Recent patients section
-        st.subheader("Recent Patients")
-        recent_patients = [
+        # Patients section
+        st.subheader("Patients")
+        patients = [
             {"Patient ID": "PATIENT-12345", "Name": "Jane Doe", "Last Visit": "October 2, 2025", "Status": "Follow-up"},
             {"Patient ID": "PATIENT-12346", "Name": "John Smith", "Last Visit": "October 3, 2025", "Status": "Stable"},
-            {"Patient ID": "PATIENT-12347", "Name": "Maria Garcia", "Last Visit": "October 4, 2025", "Status": "New"}
+            {"Patient ID": "PATIENT-12347", "Name": "Maria Garcia", "Last Visit": "October 4, 2025", "Status": "New"},
+            {"Patient ID": "PATIENT-12348", "Name": "Robert Johnson", "Last Visit": "October 4, 2025", "Status": "Follow-up"},
+            {"Patient ID": "PATIENT-12349", "Name": "Susan Williams", "Last Visit": "October 5, 2025", "Status": "New"},
+            {"Patient ID": "PATIENT-12350", "Name": "Michael Brown", "Last Visit": "October 5, 2025", "Status": "Stable"}
         ]
-        st.dataframe(pd.DataFrame(recent_patients), use_container_width=True)
         
-        # Quick actions
-        st.subheader("Quick Actions")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("🔍 Search Patient"):
-                st.session_state.page = "Patient Search"
-                st.rerun()
-        with col2:
-            if st.button("❓ Medical Q&A"):
-                st.session_state.page = "Q&A"
-                st.rerun()
-        with col3:
-            if st.button("📊 Analysis"):
-                st.session_state.page = "Analysis"
-                st.rerun()
+        # Function to generate patient summary
+        def generate_patient_summary(patient_id):
+            with st.spinner("Generating patient summary..."):
+                try:
+                    # First try to get data from API
+                    try:
+                        response = httpx.post(
+                            f"{API_URL}/summary",
+                            json={"patient_id": patient_id},
+                            timeout=10.0  # Shorter timeout
+                        )
+                        
+                        if response.status_code == 200:
+                            return response.json()
+                    except Exception:
+                        pass  # Fall back to mock data
+                    
+                    # Mock data for demo purposes
+                    mock_summaries = {
+                        "PATIENT-12345": {
+                            "summary": """**Jane Doe** is a 57-year-old female with a history of Type 2 Diabetes (diagnosed 2018) and Hypertension (diagnosed 2015). 
+                            
+Recent lab values show HbA1c of 7.2% (target <7.0%) and blood pressure averaging 138/88 mmHg.
+                            
+**Current Medications:**
+- Metformin 1000mg twice daily
+- Lisinopril 10mg daily
+- Aspirin 81mg daily
+
+**Recent History:** 
+Patient reports occasional lightheadedness when standing quickly. Last follow-up showed stable condition with recommended dietary modifications to reduce sodium intake.""",
+                            "sources": [
+                                {"text": "Patient Medical Record: Jane Doe has Type 2 Diabetes diagnosed in 2018. Current HbA1c is 7.2%, slightly above target range.", 
+                                 "metadata": {"source": "Electronic Health Record", "date": "2025-09-30"}},
+                                {"text": "Patient is on Metformin 1000mg BID, Lisinopril 10mg QD, and Aspirin 81mg QD. No reported medication side effects.",
+                                 "metadata": {"source": "Medication Record", "date": "2025-10-02"}}
+                            ]
+                        },
+                        "PATIENT-12346": {
+                            "summary": """**John Smith** is a 62-year-old male with Coronary Artery Disease. Patient underwent angioplasty in 2023 with stent placement.
+                            
+**Vital Signs:** BP 128/76 mmHg, HR 68 bpm, regular rhythm.
+                            
+**Current Medications:**
+- Atorvastatin 40mg daily
+- Clopidogrel 75mg daily
+- Metoprolol 25mg twice daily
+                            
+**Recent History:**
+Patient reports good medication compliance and regular exercise. Last stress test (August 2025) showed no significant abnormalities.""",
+                            "sources": [
+                                {"text": "Cardiac Assessment: Patient has stable CAD following angioplasty with stent placement (2023). Regular follow-ups show good recovery.",
+                                 "metadata": {"source": "Cardiology Consult", "date": "2025-09-15"}},
+                                {"text": "Stress test results normal with adequate exercise tolerance. Patient maintains regular walking routine 30 minutes daily.",
+                                 "metadata": {"source": "Diagnostic Report", "date": "2025-08-22"}}
+                            ]
+                        },
+                        "PATIENT-12347": {
+                            "summary": """**Maria Garcia** is a 45-year-old female with moderate persistent Asthma diagnosed in childhood.
+                            
+**Pulmonary Function:** FEV1 75% of predicted, improved from 68% after medication adjustment.
+                            
+**Current Medications:**
+- Fluticasone/Salmeterol inhaler twice daily
+- Albuterol rescue inhaler as needed
+- Montelukast 10mg nightly
+                            
+**Recent History:**
+Patient reports two mild asthma exacerbations in past month, typically triggered by seasonal allergies. Rescue inhaler usage has increased slightly.""",
+                            "sources": [
+                                {"text": "Respiratory Assessment: Patient has moderate persistent asthma with seasonal exacerbations. Recent PFT shows FEV1 at 75% predicted.",
+                                 "metadata": {"source": "Pulmonology Consult", "date": "2025-09-20"}},
+                                {"text": "Patient reports increased use of rescue inhaler during fall allergy season. Consider adjustment to controller medications.",
+                                 "metadata": {"source": "Office Visit Notes", "date": "2025-10-04"}}
+                            ]
+                        },
+                        "PATIENT-12348": {
+                            "summary": """**Robert Johnson** is a 71-year-old male with Osteoarthritis primarily affecting knees and hands, and Hypertension.
+                            
+**Recent Evaluation:** Moderate joint pain (4/10) with morning stiffness. Slight decrease in range of motion in right knee.
+                            
+**Current Medications:**
+- Acetaminophen 500mg as needed for pain
+- Lisinopril 20mg daily
+- Hydrochlorothiazide 12.5mg daily
+                            
+**Recent History:**
+Patient has started physical therapy for knee strengthening. Reports some improvement in mobility but continued pain with extended walking.""",
+                            "sources": [
+                                {"text": "Joint Assessment: Moderate osteoarthritis in both knees, more pronounced in right. X-rays show joint space narrowing consistent with diagnosis.",
+                                 "metadata": {"source": "Orthopedic Consult", "date": "2025-08-30"}},
+                                {"text": "Physical therapy initiated for knee strengthening. Patient demonstrates good compliance with home exercise program.",
+                                 "metadata": {"source": "PT Notes", "date": "2025-09-25"}}
+                            ]
+                        },
+                        "PATIENT-12349": {
+                            "summary": """**Susan Williams** is a 38-year-old female with chronic migraine headaches, occurring 2-3 times monthly.
+                            
+**Headache Characteristics:** Typically unilateral, pulsating, moderate to severe intensity (6-8/10), with photophobia and occasional nausea.
+                            
+**Current Medications:**
+- Sumatriptan 50mg as needed for acute attacks
+- Propranolol 80mg daily for prevention
+- Magnesium supplement 400mg daily
+                            
+**Recent History:**
+Patient reports decrease in migraine frequency since starting propranolol (previously 4-5 episodes monthly). Identified stress and irregular sleep as primary triggers.""",
+                            "sources": [
+                                {"text": "Headache diary shows reduction in migraine frequency from 4-5 to 2-3 episodes monthly since starting propranolol therapy.",
+                                 "metadata": {"source": "Neurology Notes", "date": "2025-09-10"}},
+                                {"text": "Patient reports good response to sumatriptan for acute attacks when taken early in migraine onset.",
+                                 "metadata": {"source": "Office Visit Notes", "date": "2025-10-05"}}
+                            ]
+                        },
+                        "PATIENT-12350": {
+                            "summary": """**Michael Brown** is a 52-year-old male with well-controlled Type 2 Diabetes and Hyperlipidemia.
+                            
+**Recent Lab Values:** HbA1c 6.3% (target <7.0%), LDL 92 mg/dL, HDL 48 mg/dL, Triglycerides 135 mg/dL.
+                            
+**Current Medications:**
+- Metformin 850mg twice daily
+- Rosuvastatin 10mg daily
+- Vitamin D 1000 IU daily
+                            
+**Recent History:**
+Patient has maintained good glycemic control through medication compliance and dietary modifications. Reports regular exercise 4 times weekly (30 minutes walking).""",
+                            "sources": [
+                                {"text": "Recent laboratory values demonstrate excellent glycemic control with HbA1c of 6.3%, within target range.",
+                                 "metadata": {"source": "Lab Report", "date": "2025-09-18"}},
+                                {"text": "Lipid panel shows good response to statin therapy. Patient adheres to Mediterranean diet and regular exercise regimen.",
+                                 "metadata": {"source": "Primary Care Notes", "date": "2025-10-05"}}
+                            ]
+                        }
+                    }
+                    
+                    # Return mock data if available, otherwise generate a generic response
+                    if patient_id in mock_summaries:
+                        # Simulate API delay
+                        import time
+                        time.sleep(1.5)
+                        return mock_summaries[patient_id]
+                    else:
+                        return {
+                            "summary": f"Patient {patient_id} has a stable condition with regular follow-up appointments. No significant changes in health status since last visit.",
+                            "sources": [
+                                {"text": "Standard patient record information", "metadata": {"source": "Electronic Health Record"}}
+                            ]
+                        }
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+                    return None
         
-        # Notifications
-        with st.expander("Notifications (3)"):
-            st.info("New lab results for Patient PATIENT-12345")
-            st.info("Medication review required for Patient PATIENT-12346")
-            st.warning("Follow-up appointment scheduled for Patient PATIENT-12347")
+        # Display patient dataframe with action buttons
+        df = pd.DataFrame(patients)
+        
+        # Initialize session state for modal
+        if "show_patient_modal" not in st.session_state:
+            st.session_state.show_patient_modal = False
+        if "selected_patient_id" not in st.session_state:
+            st.session_state.selected_patient_id = ""
+        if "selected_patient_name" not in st.session_state:
+            st.session_state.selected_patient_name = ""
+            
+        # Create a copy of the dataframe for display
+        display_df = df.copy()
+        
+        # Add action column with buttons
+        # We'll display the dataframe first, then buttons separately
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        
+        # Create columns for patient buttons
+        st.write("Select a patient to view summary:")
+        cols = st.columns(3)
+        for i, patient in enumerate(patients):
+            with cols[i % 3]:
+                if st.button(f"📋 {patient['Name']}", key=f"patient_{patient['Patient ID']}"):
+                    st.session_state.selected_patient_id = patient["Patient ID"]
+                    st.session_state.selected_patient_name = patient["Name"]
+                    st.session_state.show_patient_modal = True
+                    
+        # Show patient summary when selected
+        if st.session_state.show_patient_modal:
+            patient_id = st.session_state.selected_patient_id
+            patient_name = st.session_state.selected_patient_name
+            
+            # Create container for patient summary
+            st.subheader(f"Patient Summary: {patient_name}")
+            summary_container = st.container()
+            
+            with summary_container:
+                # Create patient card
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    st.image("https://img.icons8.com/color/96/000000/user-male-circle--v1.png", width=100)
+                with col2:
+                    st.subheader(patient_id)
+                    st.caption(f"Last updated: {datetime.now().strftime('%B %d, %Y')}")
+                
+                # Get patient data
+                data = generate_patient_summary(patient_id)
+                if data:
+                    st.markdown(data["summary"])
+                    
+                    # Show sources
+                    with st.expander("View Source Documents"):
+                        st.subheader("Sources")
+                        for i, source in enumerate(data["sources"]):
+                            with st.expander(f"Source {i+1}"):
+                                st.write(source["text"])
+                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                
+                # Reset modal state when closed
+                if st.button("Close Summary", key="close_summary"):
+                    st.session_state.show_patient_modal = False
+                    st.rerun()
+                
+                # Add some spacing
+                st.markdown("---")
 
     elif page == "Patient Search":
         st.header("Patient Search")
@@ -410,8 +598,7 @@ else:
         with tabs[0]:
             st.subheader("User Profile")
             st.write(f"Username: {st.session_state.username}")
-            st.write("Role")
-            st.write("Last Login")
+            st.write("Role: Healthcare Provider")
             
             with st.expander("Edit Profile"):
                 st.text_input("Name", value=st.session_state.username)

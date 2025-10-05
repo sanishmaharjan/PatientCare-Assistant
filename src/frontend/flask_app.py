@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import API_HOST, API_PORT, FRONTEND_PORT
 
 # API endpoint
-API_URL = f"http://{API_HOST}:{API_PORT}"
+API_URL = "http://{}:{}".format(API_HOST, API_PORT)
 
 # Create Flask app
 app = Flask(__name__)
@@ -34,7 +34,6 @@ BASE_TEMPLATE = """
         .header { background-color: #4CAF50; color: white; padding: 20px; }
         .sidebar { float: left; width: 200px; padding: 20px; background-color: #f1f1f1; min-height: 500px; }
         .content { margin-left: 240px; padding: 20px; }
-        .login-form { max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ccc; }
         .card { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 5px; }
         .button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; }
         .error { color: red; }
@@ -44,55 +43,27 @@ BASE_TEMPLATE = """
     </style>
 </head>
 <body>
-    {% if session.logged_in %}
-        <div class="header">
-            <h1>PatientCare Assistant</h1>
-            <p>Logged in as: {{ session.username }} | <a href="/logout" style="color: white;">Logout</a></p>
-        </div>
-        <div class="sidebar">
-            <h3>Navigation</h3>
-            <ul>
-                <li><a href="/">Dashboard</a></li>
-                <li><a href="/patient">Patient Search</a></li>
-                <li><a href="/qa">Medical Q&A</a></li>
-                <li><a href="/settings">Settings</a></li>
-            </ul>
-        </div>
-        <div class="content">
-            {% block content %}{% endblock %}
-        </div>
-    {% else %}
-        {% block login %}{% endblock %}
-    {% endif %}
+    <div class="header">
+        <h1>PatientCare Assistant</h1>
+        <p>Healthcare Provider: {{ session.username }}</p>
+    </div>
+    <div class="sidebar">
+        <h3>Navigation</h3>
+        <ul>
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/patient">Patient Search</a></li>
+            <li><a href="/qa">Medical Q&A</a></li>
+            <li><a href="/settings">Settings</a></li>
+        </ul>
+    </div>
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
 </body>
 </html>
 """
 
-LOGIN_TEMPLATE = """
-{% extends "base_template" %}
-{% block login %}
-<div class="login-form">
-    <h2>PatientCare Assistant Login</h2>
-    {% if error %}
-        <p class="error">{{ error }}</p>
-    {% endif %}
-    <form method="post" action="/login">
-        <div>
-            <label>Username:</label><br>
-            <input type="text" name="username" required>
-        </div>
-        <div style="margin-top: 15px;">
-            <label>Password:</label><br>
-            <input type="password" name="password" required>
-        </div>
-        <div style="margin-top: 20px;">
-            <button type="submit" class="button">Login</button>
-        </div>
-    </form>
-    <p><i>Use any username and password for demo purposes</i></p>
-</div>
-{% endblock %}
-"""
+# Login template removed - no longer needed
 
 DASHBOARD_TEMPLATE = """
 {% extends "base_template" %}
@@ -252,8 +223,10 @@ SETTINGS_TEMPLATE = """
 # Routes
 @app.route('/')
 def index():
-    if not session.get('logged_in'):
-        return render_template_string(LOGIN_TEMPLATE, base_template=BASE_TEMPLATE, error=None)
+    # Set default session data
+    session['logged_in'] = True
+    if 'username' not in session:
+        session['username'] = 'Provider'
     
     # Sample patient data
     patients = [
@@ -269,29 +242,14 @@ def index():
         current_date=datetime.now().strftime('%B %d, %Y')
     )
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error = None
-    if request.method == 'POST':
-        if request.form['username'] and request.form['password']:
-            session['logged_in'] = True
-            session['username'] = request.form['username']
-            return redirect(url_for('index'))
-        else:
-            error = 'Invalid credentials'
-    
-    return render_template_string(LOGIN_TEMPLATE, base_template=BASE_TEMPLATE, error=error)
-
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    session.pop('username', None)
-    return redirect(url_for('index'))
+# Authentication routes removed - auto-login implemented in index route)
 
 @app.route('/patient', methods=['GET', 'POST'])
 def patient():
-    if not session.get('logged_in'):
-        return redirect(url_for('index'))
+    # Ensure user is always considered logged in
+    session['logged_in'] = True
+    if 'username' not in session:
+        session['username'] = 'Provider'
     
     patient_id = None
     summary = None
@@ -339,8 +297,10 @@ def patient():
 
 @app.route('/qa', methods=['GET', 'POST'])
 def qa():
-    if not session.get('logged_in'):
-        return redirect(url_for('index'))
+    # Ensure user is always considered logged in
+    session['logged_in'] = True
+    if 'username' not in session:
+        session['username'] = 'Provider'
     
     question = None
     answer = None
@@ -370,8 +330,10 @@ def qa():
 
 @app.route('/settings')
 def settings():
-    if not session.get('logged_in'):
-        return redirect(url_for('index'))
+    # Ensure user is always considered logged in
+    session['logged_in'] = True
+    if 'username' not in session:
+        session['username'] = 'Provider'
     
     return render_template_string(
         SETTINGS_TEMPLATE,
