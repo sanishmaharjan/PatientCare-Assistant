@@ -49,7 +49,7 @@ with st.sidebar:
     
     # Sidebar navigation
     st.title("Navigation")
-    page = st.radio("Select a page", ["Dashboard", "Patient Search", "Q&A", "Analysis", "Settings"])
+    page = st.radio("Select a page", ["Dashboard", "Q&A", "Analysis", "Settings"])
 
 # Only show content if logged in
 if not st.session_state.get("logged_in", False):
@@ -263,10 +263,7 @@ Patient has maintained good glycemic control through medication compliance and d
             # Extract patient ID from selection string
             selected_patient_id = selected_option.split("(")[1].replace(")", "")
             selected_patient = df[df["Patient ID"] == selected_patient_id].iloc[0]
-            selected_patient_name = selected_patient["Name"]
-            
-            # Show patient summary
-            st.session_state.show_patient_summary = True
+            selected_patient_name = selected_patient["Name"]                # Set selected patient in session state
             st.session_state.selected_patient_id = selected_patient_id
             st.session_state.selected_patient_name = selected_patient_name
             
@@ -274,170 +271,96 @@ Patient has maintained good glycemic control through medication compliance and d
             summary_container = st.container()
             
             with summary_container:
-                st.subheader(f"Patient Summary: {selected_patient_name}")
-                
                 # Create patient card
                 col1, col2 = st.columns([1, 3])
                 with col1:
                     st.image("https://img.icons8.com/color/96/000000/user-male-circle--v1.png", width=100)
                 with col2:
-                    st.subheader(selected_patient_id)
+                    st.subheader(f"{selected_patient_name} ({selected_patient_id})")
                     st.caption(f"Last updated: {datetime.now().strftime('%B %d, %Y')}")
                 
-                # Make the actual API call to get patient summary using get_patient_summary endpoint
-                with st.spinner("Retrieving patient summary..."):
-                    try:
-                        # Direct API call to the actual endpoint - no mock data
-                        response = httpx.post(
-                            f"{API_URL}/summary",
-                            json={"patient_id": selected_patient_id},
-                            timeout=30.0
-                        )
-                        
-                        if response.status_code == 200:
-                            # Parse the API response
-                            data = response.json()
+                # Add action buttons for patient
+                col1, col2 = st.columns(2)
+                with col1:
+                    summary_button = st.button("📋 Generate Summary")
+                with col2:
+                    issues_button = st.button("⚠️ Identify Health Issues")
+                
+                # Display information based on button clicks
+                if summary_button:
+                    st.subheader("Patient Summary")
+                    with st.spinner("Generating patient summary..."):
+                        try:
+                            # Direct API call to the actual endpoint
+                            response = httpx.post(
+                                f"{API_URL}/summary",
+                                json={"patient_id": selected_patient_id},
+                                timeout=30.0
+                            )
                             
-                            # Display the summary
-                            st.markdown(data["summary"])
+                            if response.status_code == 200:
+                                # Parse the API response
+                                data = response.json()
+                                
+                                # Display the summary
+                                st.markdown(data["summary"])
+                                
+                                # Display sources if available
+                                if "sources" in data and data["sources"]:
+                                    with st.expander("View Source Documents"):
+                                        st.subheader("Sources")
+                                        for i, source in enumerate(data["sources"]):
+                                            with st.expander(f"Source {i+1}"):
+                                                st.write(source["text"])
+                                                if "metadata" in source:
+                                                    st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                                    if "date" in source["metadata"]:
+                                                        st.caption(f"Date: {source['metadata']['date']}")
+                            else:
+                                st.error(f"Error retrieving patient data: {response.status_code}")
+                                st.error(response.text)
+                        except Exception as e:
+                            st.error(f"Error connecting to API: {str(e)}")
+                            st.info("Please make sure the API server is running at " + API_URL)
+                
+                if issues_button:
+                    st.subheader("Potential Health Issues")
+                    with st.spinner("Identifying health issues..."):
+                        try:
+                            # Direct API call to health-issues endpoint
+                            response = httpx.post(
+                                f"{API_URL}/health-issues",
+                                json={"patient_id": selected_patient_id},
+                                timeout=30.0
+                            )
                             
-                            # Display sources if available
-                            if "sources" in data and data["sources"]:
-                                with st.expander("View Source Documents"):
-                                    st.subheader("Sources")
-                                    for i, source in enumerate(data["sources"]):
-                                        with st.expander(f"Source {i+1}"):
-                                            st.write(source["text"])
-                                            if "metadata" in source:
-                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                                                if "date" in source["metadata"]:
-                                                    st.caption(f"Date: {source['metadata']['date']}")
-                        else:
-                            st.error(f"Error retrieving patient data: {response.status_code}")
-                            st.error(response.text)
-                    except Exception as e:
-                        st.error(f"Error connecting to API: {str(e)}")
-                        st.info("Please make sure the API server is running at " + API_URL)
+                            if response.status_code == 200:
+                                # Parse the API response
+                                data = response.json()
+                                
+                                # Display the health issues
+                                st.markdown(data["issues"])
+                                
+                                # Display sources if available
+                                if "sources" in data and data["sources"]:
+                                    with st.expander("View Source Documents"):
+                                        st.subheader("Sources")
+                                        for i, source in enumerate(data["sources"]):
+                                            with st.expander(f"Source {i+1}"):
+                                                st.write(source["text"])
+                                                if "metadata" in source:
+                                                    st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                                    if "date" in source["metadata"]:
+                                                        st.caption(f"Date: {source['metadata']['date']}")
+                            else:
+                                st.error(f"Error retrieving health issues: {response.status_code}")
+                                st.error(response.text)
+                        except Exception as e:
+                            st.error(f"Error connecting to API: {str(e)}")
+                            st.info("Please make sure the API server is running at " + API_URL)
             
             # Add some spacing and separation
             st.markdown("---")
-
-    elif page == "Patient Search":
-        st.header("Patient Search")
-        
-        # Patient search tabs
-        tab1, tab2 = st.tabs(["Search by ID", "Browse Patients"])
-        
-        with tab1:
-            # Patient ID input
-            patient_id = st.text_input("Enter Patient ID", "PATIENT-12345")
-            
-            # Action buttons
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                summary_button = st.button("📋 Generate Summary")
-            with col2:
-                issues_button = st.button("⚠️ Identify Health Issues")
-            with col3:
-                history_button = st.button("📜 View History")
-            
-            # Handle summary generation
-            if summary_button:
-                with st.spinner("Generating patient summary..."):
-                    try:
-                        # Using a synchronous client instead of async
-                        response = httpx.post(
-                            f"{API_URL}/summary",
-                            json={"patient_id": patient_id},
-                            timeout=30.0
-                        )
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            st.success("Summary generated successfully")
-                            st.subheader("Patient Summary")
-                            
-                            # Create patient card
-                            with st.container():
-                                col1, col2 = st.columns([1, 3])
-                                with col1:
-                                    st.image("https://img.icons8.com/color/96/000000/user-male-circle--v1.png", width=100)
-                                with col2:
-                                    st.subheader(f"Patient-{patient_id}")
-                                    st.caption("Last updated")
-                            
-                            st.markdown(data["summary"])
-                            
-                            # Show sources
-                            with st.expander("View Source Documents"):
-                                st.subheader("Sources")
-                                for i, source in enumerate(data["sources"]):
-                                    with st.expander(f"Source {i+1}"):
-                                        st.write(source["text"])
-                                        st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                        else:
-                            st.error(f"Error: {response.text}")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-            
-            # Handle health issues identification
-            if issues_button:
-                with st.spinner("Identifying health issues..."):
-                    try:
-                        # Using a synchronous client instead of async
-                        response = httpx.post(
-                            f"{API_URL}/health-issues",
-                            json={"patient_id": patient_id},
-                            timeout=30.0
-                        )
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            st.success("Analysis complete")
-                            st.subheader("Potential Health Issues")
-                            st.markdown(data["issues"])
-                            
-                            # Show sources
-                            with st.expander("View Source Documents"):
-                                st.subheader("Sources")
-                                for i, source in enumerate(data["sources"]):
-                                    with st.expander(f"Source {i+1}"):
-                                        st.write(source["text"])
-                                        st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                        else:
-                            st.error(f"Error: {response.text}")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-            
-            # Handle history view (demo)
-            if history_button:
-                st.subheader("Patient History")
-                history_data = [
-                    {"Date": "Sep 15, 2025", "Type": "Office Visit", "Provider": "Dr. Johnson", "Notes": "Routine checkup"},
-                    {"Date": "Aug 22, 2025", "Type": "Lab Work", "Provider": "Lab Corp", "Notes": "Blood panel"},
-                    {"Date": "Jul 10, 2025", "Type": "Prescription", "Provider": "Dr. Johnson", "Notes": "Renewed metformin prescription"},
-                    {"Date": "Jun 5, 2025", "Type": "Office Visit", "Provider": "Dr. Smith", "Notes": "Blood pressure follow-up"}
-                ]
-                st.dataframe(pd.DataFrame(history_data), use_container_width=True)
-        
-        with tab2:
-            st.subheader("Browse Patients")
-            # Demo patient list
-            patients = [
-                {"Patient ID": "PATIENT-12345", "Name": "Jane Doe", "Age": 57, "Gender": "Female", "Primary Condition": "Hypertension, Diabetes"},
-                {"Patient ID": "PATIENT-12346", "Name": "John Smith", "Age": 62, "Gender": "Male", "Primary Condition": "Coronary Artery Disease"},
-                {"Patient ID": "PATIENT-12347", "Name": "Maria Garcia", "Age": 45, "Gender": "Female", "Primary Condition": "Asthma"},
-                {"Patient ID": "PATIENT-12348", "Name": "Robert Johnson", "Age": 71, "Gender": "Male", "Primary Condition": "Arthritis, Hypertension"},
-                {"Patient ID": "PATIENT-12349", "Name": "Susan Williams", "Age": 38, "Gender": "Female", "Primary Condition": "Migraine"}
-            ]
-            st.dataframe(pd.DataFrame(patients), use_container_width=True)
-            
-            # Patient filters
-            col1, col2 = st.columns(2)
-            with col1:
-                st.selectbox("Filter by Condition", ["All", "Hypertension", "Diabetes", "Asthma", "Arthritis", "Other"])
-            with col2:
-                st.selectbox("Sort by", ["Name", "Age", "Recent Visit"])
 
     elif page == "Q&A":
         st.header("Medical Q&A")
@@ -653,7 +576,7 @@ Patient has maintained good glycemic control through medication compliance and d
             st.checkbox("Dark Mode", value=False)
             st.checkbox("Compact View", value=True)
             st.selectbox("Font Size", ["Small", "Medium", "Large"])
-            st.radio("Default Page", ["Dashboard", "Patient Search", "Q&A"])
+            st.radio("Default Page", ["Dashboard", "Q&A", "Analysis"])
 
 # Footer
 st.markdown("---")

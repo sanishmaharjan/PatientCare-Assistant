@@ -51,7 +51,6 @@ BASE_TEMPLATE = """
         <h3>Navigation</h3>
         <ul>
             <li><a href="/">Dashboard</a></li>
-            <li><a href="/patient">Patient Search</a></li>
             <li><a href="/qa">Medical Q&A</a></li>
             <li><a href="/settings">Settings</a></li>
         </ul>
@@ -96,7 +95,6 @@ DASHBOARD_TEMPLATE = """
 
 <div class="card">
     <h3>Quick Actions</h3>
-    <a href="/patient" class="button">Search Patient</a>
     <a href="/qa" class="button">Medical Q&A</a>
 </div>
 {% endblock %}

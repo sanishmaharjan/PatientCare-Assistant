@@ -120,7 +120,7 @@ docker-compose up -d
 
 1. **Access Dashboard**: Open the web interface at http://localhost:8501 to view the dashboard
 2. **Upload Documents**: Upload patient documents in the Analysis page
-3. **Search Patients**: Use the Patient Search page to find and view patient information
+3. **Patient Information**: View and analyze patient information directly from the Dashboard
 4. **Ask Questions**: Use the Q&A page to ask natural language questions about patients
 5. **Generate Reports**: Generate summaries and health risk assessments
 
