@@ -1,0 +1,50 @@
+{
+  "document_id": "PATIENT-12345",
+  "chunks": [
+    {
+      "id": "chunk_1",
+      "text": "Patient Demographics\n- ID: PATIENT-12345\n- Age: 57\n- Gender: Female\n- Blood Type: O+",
+      "metadata": {
+        "source": "sample_patient_record.md",
+        "section": "demographics"
+      },
+      "embedding": [0.024, -0.015, 0.031, 0.022, 0.042]
+    },
+    {
+      "id": "chunk_2",
+      "text": "Medical History\n- Hypertension (diagnosed 2015)\n- Type 2 Diabetes (diagnosed 2018)\n- Appendectomy (2010)",
+      "metadata": {
+        "source": "sample_patient_record.md",
+        "section": "medical_history"
+      },
+      "embedding": [0.031, 0.022, -0.018, 0.035, 0.019]
+    },
+    {
+      "id": "chunk_3",
+      "text": "Current Medications\n- Metformin 500mg twice daily\n- Lisinopril 10mg once daily\n- Aspirin 81mg once daily",
+      "metadata": {
+        "source": "sample_patient_record.md",
+        "section": "medications"
+      },
+      "embedding": [0.017, 0.033, -0.021, 0.012, 0.045]
+    },
+    {
+      "id": "chunk_4",
+      "text": "Recent Vitals\n- BP: 138/85\n- HR: 72\n- Temp: 98.6°F\n- O2 Sat: 97%",
+      "metadata": {
+        "source": "sample_patient_record.md",
+        "section": "vitals"
+      },
+      "embedding": [0.026, -0.014, 0.038, 0.019, 0.027]
+    },
+    {
+      "id": "chunk_5",
+      "text": "Recent Lab Results\n- HbA1c: 7.2%\n- Fasting Blood Glucose: 142 mg/dL\n- Total Cholesterol: 195 mg/dL\n- HDL: 42 mg/dL\n- LDL: 120 mg/dL",
+      "metadata": {
+        "source": "sample_patient_record.md",
+        "section": "lab_results"
+      },
+      "embedding": [0.035, 0.027, -0.012, 0.041, 0.018]
+    }
+  ]
+}

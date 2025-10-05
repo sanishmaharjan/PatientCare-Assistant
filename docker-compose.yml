@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  patientcare-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"  # API
+      - "8501:8501"  # Frontend
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - src/.env
+    environment:
+      - API_HOST=localhost
+      - API_PORT=8000
+      - FRONTEND_PORT=8501
+    command: python src/main.py --all
