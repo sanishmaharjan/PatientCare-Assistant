@@ -55,22 +55,32 @@ def process_documents():
 def start_api_server():
     """Start the API server."""
     api_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "api", "app.py")
-    subprocess.Popen([
-        sys.executable, api_script
-    ])
-    print(f"API server started at http://{API_HOST}:{API_PORT}")
+    try:
+        process = subprocess.Popen([
+            sys.executable, api_script
+        ])
+        print(f"API server started at http://{API_HOST}:{API_PORT}")
+        return process
+    except Exception as e:
+        print(f"Error starting API server: {str(e)}")
+        return None
 
 
 def start_frontend_server():
     """Start the frontend server."""
     # Use Streamlit frontend instead of Flask
     frontend_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "app.py")
-    subprocess.Popen([
-        sys.executable, "-m", "streamlit", "run", frontend_script,
-        "--server.port", str(FRONTEND_PORT),
-        "--server.address", "localhost"
-    ])
-    print(f"Frontend server started at http://localhost:{FRONTEND_PORT}")
+    try:
+        process = subprocess.Popen([
+            sys.executable, "-m", "streamlit", "run", frontend_script,
+            "--server.port", str(FRONTEND_PORT),
+            "--server.address", "localhost"
+        ])
+        print(f"Frontend server started at http://localhost:{FRONTEND_PORT}")
+        return process
+    except Exception as e:
+        print(f"Error starting frontend server: {str(e)}")
+        return None
 
 
 if __name__ == "__main__":
@@ -89,11 +99,30 @@ if __name__ == "__main__":
     if args.process or args.all:
         process_documents()
     
+    api_process = None
+    frontend_process = None
+    
     if args.api or args.all:
-        start_api_server()
+        api_process = start_api_server()
     
     if args.frontend or args.all:
-        start_frontend_server()
+        frontend_process = start_frontend_server()
+    
+    # Keep the main process running if any servers are started
+    if api_process or frontend_process:
+        try:
+            # Wait for servers to complete (which they won't unless terminated)
+            if api_process:
+                api_process.wait()
+            if frontend_process:
+                frontend_process.wait()
+        except KeyboardInterrupt:
+            print("\nShutting down servers...")
+            # Terminate servers gracefully on Ctrl+C
+            if api_process:
+                api_process.terminate()
+            if frontend_process:
+                frontend_process.terminate()
     
     if not (args.setup or args.process or args.api or args.frontend or args.all):
         parser.print_help()

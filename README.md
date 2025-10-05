@@ -53,7 +53,7 @@ The application follows a modular architecture:
 
 ```bash
 # Clone the repository
-git clone [repository-url]
+git clone git@github.com:sanishmaharjan/PatientCare-Assistant.git
 cd patientcare-assistant
 
 # Run the setup script (creates venv and installs dependencies)
@@ -67,17 +67,23 @@ source venv_py3/bin/activate  # On Windows: venv_py3\Scripts\activate
 cp src/.env.example src/.env
 # Edit src/.env to add your OpenAI API key
 
-# Process sample documents
-python src/main.py --process
+# Run the application (all-in-one launcher)
+chmod +x run_all.sh
+./run_all.sh
 
-# Start the application
-python src/main.py --api --frontend
+# Or use individual scripts for more control:
+# Process documents only
+./run_processing.sh
 
-# Or use the control script to manage servers
+# Start API and frontend servers
+./run_servers.sh
+
+# Or use the control script for server management
 ./control.sh --start    # Start both servers
 ./control.sh --stop     # Stop both servers
-./control.sh --restart  # Restart both servers
 ./control.sh --status   # Check server status
+
+# See docs/launcher-scripts.md for more options
 ```
 
 # Configure environment variables

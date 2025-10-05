@@ -7,9 +7,27 @@ import json
 import sys
 from typing import List, Dict, Any, Optional
 
-# Document loaders
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+# Document loaders - We use a compatibility layer to handle different versions of langchain
+# and suppress deprecation warnings
+import warnings
+
+# Temporarily suppress deprecation warnings during imports
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=UserWarning)
+    
+    try:
+        # Try the new import path first (langchain-community)
+        from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
+    except ImportError:
+        # Fall back to the legacy import path
+        from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
+
+    # Import text splitter
+    try:
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+    except ImportError:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Local imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -5,9 +5,25 @@ Embedding module for converting text to vector representations.
 import os
 import json
 import sys
-from typing import List, Dict, Any
+import logging
+import warnings
+from typing import List, Dict, Any, Optional
 
-import chromadb
+# Set environment variables to disable telemetry before importing chromadb
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Suppress ChromaDB telemetry warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import chromadb
 
 # Local imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,8 +43,19 @@ class EmbeddingGenerator:
         # Ensure vector DB directory exists
         os.makedirs(VECTOR_DB_PATH, exist_ok=True)
         
-        # Initialize ChromaDB client
-        self.client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
+        # Disable ChromaDB telemetry to prevent warnings
+        os.environ["ANONYMIZED_TELEMETRY"] = "False"
+        os.environ["CHROMA_TELEMETRY"] = "False"
+        
+        # Initialize ChromaDB client with telemetry disabled
+        try:
+            self.client = chromadb.PersistentClient(
+                path=VECTOR_DB_PATH,
+                settings=chromadb.Settings(anonymized_telemetry=False)
+            )
+        except TypeError:
+            # Fall back to old API if settings parameter is not supported
+            self.client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
         
         # Create collection if it doesn't exist
         try:
@@ -55,19 +82,29 @@ class EmbeddingGenerator:
             # Generate embeddings
             embeddings = self.embeddings.embed_documents(texts)
             
-            # Prepare IDs and metadata for ChromaDB
-            ids = [f"doc_{i}_{j}" for j in range(len(batch))]
+            # Prepare unique IDs and metadata for ChromaDB
+            # Use a more unique ID format to avoid collisions
+            import uuid
+            ids = [f"doc_{uuid.uuid4()}" for _ in range(len(batch))]
             metadatas = [doc["metadata"] for doc in batch]
             
             # Add to collection
-            self.collection.add(
-                embeddings=embeddings,
-                documents=texts,
-                ids=ids,
-                metadatas=metadatas
-            )
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.collection.add(
+                        embeddings=embeddings,
+                        documents=texts,
+                        ids=ids,
+                        metadatas=metadatas
+                    )
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    logger.warning(f"Duplicate ID detected. Skipping this batch.")
+                else:
+                    logger.error(f"Error adding documents to collection: {str(e)}")
             
-        print(f"Added {len(documents)} documents to vector database")
+        logger.info(f"Added {len(documents)} documents to vector database")
         
     def process_file(self, file_path: str):
         """
@@ -94,11 +131,11 @@ class EmbeddingGenerator:
                     file_path = os.path.join(root, filename)
                     try:
                         self.process_file(file_path)
-                        print(f"Added embeddings for {filename}")
+                        logger.info(f"Added embeddings for {filename}")
                     except Exception as e:
-                        print(f"Error processing {filename}: {str(e)}")
+                        logger.error(f"Error processing {filename}: {str(e)}")
                         
-        print(f"Embeddings generated and stored in {VECTOR_DB_PATH}")
+        logger.info(f"Embeddings generated and stored in {VECTOR_DB_PATH}")
         
     def query_by_text(self, query_text: str, top_k: int = 5):
         """
