@@ -6,7 +6,11 @@ import os
 import sys
 import json
 import time
+import io
+import zipfile
 from typing import Dict, List, Any, Optional
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 import httpx
@@ -157,157 +161,35 @@ else:
             {"Patient ID": "PATIENT-12350", "Name": "Michael Brown", "Last Visit": "October 5, 2025", "Status": "Stable"}
         ]
         
-        # Function to generate patient summary
-        def generate_patient_summary(patient_id):
-            with st.spinner("Generating patient summary..."):
-                try:
-                    # First try to get data from API
-                    try:
-                        response = httpx.post(
-                            f"{API_URL}/summary",
-                            json={"patient_id": patient_id},
-                            timeout=10.0  # Shorter timeout
-                        )
-                        
-                        if response.status_code == 200:
-                            return response.json()
-                    except Exception:
-                        pass  # Fall back to mock data
+        # Helper function to display patient summary
+        def display_patient_summary(patient_id, summary_type="summary"):
+            """Display patient summary or health issues using API."""
+            endpoint = "summary" if summary_type == "summary" else "health-issues"
+            title = "Patient Summary" if summary_type == "summary" else "Potential Health Issues"
+            
+            with st.spinner(f"Generating {title.lower()}..."):
+                success, data, error = api_request(endpoint, {"patient_id": patient_id})
+                
+                if success:
+                    # Display the summary or health issues
+                    content_key = "summary" if summary_type == "summary" else "issues"
+                    st.markdown(data[content_key])
                     
-                    # Mock data for demo purposes
-                    mock_summaries = {
-                        "PATIENT-12345": {
-                            "summary": """**Jane Doe** is a 57-year-old female with a history of Type 2 Diabetes (diagnosed 2018) and Hypertension (diagnosed 2015). 
-                            
-Recent lab values show HbA1c of 7.2% (target <7.0%) and blood pressure averaging 138/88 mmHg.
-                            
-**Current Medications:**
-- Metformin 1000mg twice daily
-- Lisinopril 10mg daily
-- Aspirin 81mg daily
-
-**Recent History:** 
-Patient reports occasional lightheadedness when standing quickly. Last follow-up showed stable condition with recommended dietary modifications to reduce sodium intake.""",
-                            "sources": [
-                                {"text": "Patient Medical Record: Jane Doe has Type 2 Diabetes diagnosed in 2018. Current HbA1c is 7.2%, slightly above target range.", 
-                                 "metadata": {"source": "Electronic Health Record", "date": "2025-09-30"}},
-                                {"text": "Patient is on Metformin 1000mg BID, Lisinopril 10mg QD, and Aspirin 81mg QD. No reported medication side effects.",
-                                 "metadata": {"source": "Medication Record", "date": "2025-10-02"}}
-                            ]
-                        },
-                        "PATIENT-12346": {
-                            "summary": """**John Smith** is a 62-year-old male with Coronary Artery Disease. Patient underwent angioplasty in 2023 with stent placement.
-                            
-**Vital Signs:** BP 128/76 mmHg, HR 68 bpm, regular rhythm.
-                            
-**Current Medications:**
-- Atorvastatin 40mg daily
-- Clopidogrel 75mg daily
-- Metoprolol 25mg twice daily
-                            
-**Recent History:**
-Patient reports good medication compliance and regular exercise. Last stress test (August 2025) showed no significant abnormalities.""",
-                            "sources": [
-                                {"text": "Cardiac Assessment: Patient has stable CAD following angioplasty with stent placement (2023). Regular follow-ups show good recovery.",
-                                 "metadata": {"source": "Cardiology Consult", "date": "2025-09-15"}},
-                                {"text": "Stress test results normal with adequate exercise tolerance. Patient maintains regular walking routine 30 minutes daily.",
-                                 "metadata": {"source": "Diagnostic Report", "date": "2025-08-22"}}
-                            ]
-                        },
-                        "PATIENT-12347": {
-                            "summary": """**Maria Garcia** is a 45-year-old female with moderate persistent Asthma diagnosed in childhood.
-                            
-**Pulmonary Function:** FEV1 75% of predicted, improved from 68% after medication adjustment.
-                            
-**Current Medications:**
-- Fluticasone/Salmeterol inhaler twice daily
-- Albuterol rescue inhaler as needed
-- Montelukast 10mg nightly
-                            
-**Recent History:**
-Patient reports two mild asthma exacerbations in past month, typically triggered by seasonal allergies. Rescue inhaler usage has increased slightly.""",
-                            "sources": [
-                                {"text": "Respiratory Assessment: Patient has moderate persistent asthma with seasonal exacerbations. Recent PFT shows FEV1 at 75% predicted.",
-                                 "metadata": {"source": "Pulmonology Consult", "date": "2025-09-20"}},
-                                {"text": "Patient reports increased use of rescue inhaler during fall allergy season. Consider adjustment to controller medications.",
-                                 "metadata": {"source": "Office Visit Notes", "date": "2025-10-04"}}
-                            ]
-                        },
-                        "PATIENT-12348": {
-                            "summary": """**Robert Johnson** is a 71-year-old male with Osteoarthritis primarily affecting knees and hands, and Hypertension.
-                            
-**Recent Evaluation:** Moderate joint pain (4/10) with morning stiffness. Slight decrease in range of motion in right knee.
-                            
-**Current Medications:**
-- Acetaminophen 500mg as needed for pain
-- Lisinopril 20mg daily
-- Hydrochlorothiazide 12.5mg daily
-                            
-**Recent History:**
-Patient has started physical therapy for knee strengthening. Reports some improvement in mobility but continued pain with extended walking.""",
-                            "sources": [
-                                {"text": "Joint Assessment: Moderate osteoarthritis in both knees, more pronounced in right. X-rays show joint space narrowing consistent with diagnosis.",
-                                 "metadata": {"source": "Orthopedic Consult", "date": "2025-08-30"}},
-                                {"text": "Physical therapy initiated for knee strengthening. Patient demonstrates good compliance with home exercise program.",
-                                 "metadata": {"source": "PT Notes", "date": "2025-09-25"}}
-                            ]
-                        },
-                        "PATIENT-12349": {
-                            "summary": """**Susan Williams** is a 38-year-old female with chronic migraine headaches, occurring 2-3 times monthly.
-                            
-**Headache Characteristics:** Typically unilateral, pulsating, moderate to severe intensity (6-8/10), with photophobia and occasional nausea.
-                            
-**Current Medications:**
-- Sumatriptan 50mg as needed for acute attacks
-- Propranolol 80mg daily for prevention
-- Magnesium supplement 400mg daily
-                            
-**Recent History:**
-Patient reports decrease in migraine frequency since starting propranolol (previously 4-5 episodes monthly). Identified stress and irregular sleep as primary triggers.""",
-                            "sources": [
-                                {"text": "Headache diary shows reduction in migraine frequency from 4-5 to 2-3 episodes monthly since starting propranolol therapy.",
-                                 "metadata": {"source": "Neurology Notes", "date": "2025-09-10"}},
-                                {"text": "Patient reports good response to sumatriptan for acute attacks when taken early in migraine onset.",
-                                 "metadata": {"source": "Office Visit Notes", "date": "2025-10-05"}}
-                            ]
-                        },
-                        "PATIENT-12350": {
-                            "summary": """**Michael Brown** is a 52-year-old male with well-controlled Type 2 Diabetes and Hyperlipidemia.
-                            
-**Recent Lab Values:** HbA1c 6.3% (target <7.0%), LDL 92 mg/dL, HDL 48 mg/dL, Triglycerides 135 mg/dL.
-                            
-**Current Medications:**
-- Metformin 850mg twice daily
-- Rosuvastatin 10mg daily
-- Vitamin D 1000 IU daily
-                            
-**Recent History:**
-Patient has maintained good glycemic control through medication compliance and dietary modifications. Reports regular exercise 4 times weekly (30 minutes walking).""",
-                            "sources": [
-                                {"text": "Recent laboratory values demonstrate excellent glycemic control with HbA1c of 6.3%, within target range.",
-                                 "metadata": {"source": "Lab Report", "date": "2025-09-18"}},
-                                {"text": "Lipid panel shows good response to statin therapy. Patient adheres to Mediterranean diet and regular exercise regimen.",
-                                 "metadata": {"source": "Primary Care Notes", "date": "2025-10-05"}}
-                            ]
-                        }
-                    }
-                    
-                    # Return mock data if available, otherwise generate a generic response
-                    if patient_id in mock_summaries:
-                        # Simulate API delay
-                        import time
-                        time.sleep(1.5)
-                        return mock_summaries[patient_id]
-                    else:
-                        return {
-                            "summary": f"Patient {patient_id} has a stable condition with regular follow-up appointments. No significant changes in health status since last visit.",
-                            "sources": [
-                                {"text": "Standard patient record information", "metadata": {"source": "Electronic Health Record"}}
-                            ]
-                        }
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
-                    return None
+                    # Display sources if available
+                    if "sources" in data and data["sources"]:
+                        with st.expander("📋 View Source Documents", expanded=False):
+                            for i, source in enumerate(data["sources"]):
+                                with st.expander(f"Source {i+1}: {source.get('metadata', {}).get('source', 'Unknown')}", expanded=False):
+                                    st.write(source["text"])
+                                    if "metadata" in source:
+                                        metadata = source["metadata"]
+                                        if "source" in metadata:
+                                            st.caption(f"📄 Source: {metadata['source']}")
+                                        if "date" in metadata:
+                                            st.caption(f"📅 Date: {metadata['date']}")
+                else:
+                    st.error(f"❌ {error}")
+                    st.info(f"💡 Please ensure the API server is running at {API_URL} and documents are processed")
         
         # Display patient dataframe
         df = pd.DataFrame(patients)
@@ -367,52 +249,12 @@ Patient has maintained good glycemic control through medication compliance and d
                 
                 # Display information based on button clicks
                 if summary_button:
-                    st.subheader("Patient Summary")
-                    with st.spinner("Generating patient summary..."):
-                        success, data, error = api_request("summary", {"patient_id": selected_patient_id})
-                        
-                        if success:
-                            # Display the summary
-                            st.markdown(data["summary"])
-                            
-                            # Display sources if available
-                            if "sources" in data and data["sources"]:
-                                with st.expander("View Source Documents"):
-                                    st.subheader("Sources")
-                                    for i, source in enumerate(data["sources"]):
-                                        with st.expander(f"Source {i+1}"):
-                                            st.write(source["text"])
-                                            if "metadata" in source:
-                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                                                if "date" in source["metadata"]:
-                                                    st.caption(f"Date: {source['metadata']['date']}")
-                        else:
-                            st.error(error)
-                            st.info(f"Please make sure the API server is running at {API_URL}")
+                    st.subheader("📋 Patient Summary")
+                    display_patient_summary(selected_patient_id, "summary")
                 
                 if issues_button:
-                    st.subheader("Potential Health Issues")
-                    with st.spinner("Identifying health issues..."):
-                        success, data, error = api_request("health-issues", {"patient_id": selected_patient_id})
-                            
-                        if success:
-                            # Display the health issues
-                            st.markdown(data["issues"])
-                            
-                            # Display sources if available
-                            if "sources" in data and data["sources"]:
-                                with st.expander("View Source Documents"):
-                                    st.subheader("Sources")
-                                    for i, source in enumerate(data["sources"]):
-                                        with st.expander(f"Source {i+1}"):
-                                            st.write(source["text"])
-                                            if "metadata" in source:
-                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                                                if "date" in source["metadata"]:
-                                                    st.caption(f"Date: {source['metadata']['date']}")
-                        else:
-                            st.error(error)
-                            st.info(f"Please make sure the API server is running at {API_URL}")
+                    st.subheader("⚠️ Potential Health Issues")
+                    display_patient_summary(selected_patient_id, "health-issues")
             
             # Add some spacing and separation
             st.markdown("---")
