@@ -368,60 +368,89 @@ Patient has maintained good glycemic control through medication compliance and d
         Ask questions about patient records, and the system will retrieve relevant information.
         """)
         
-        # Chat interface
-        if "messages" not in st.session_state:
-            st.session_state.messages = [
-                {"role": "assistant", "content": "I'm your medical assistant. How can I help you today?"}
-            ]
+        # Create a two-column layout for the main content and suggested questions
+        main_col, suggested_col = st.columns([3, 1])
         
-        # Display chat messages
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-        
-        # Chat input
-        if prompt := st.chat_input("Ask a medical question..."):
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+        with main_col:
+            # Chat interface
+            if "messages" not in st.session_state:
+                st.session_state.messages = [
+                    {"role": "assistant", "content": "I'm your medical assistant. How can I help you today?"}
+                ]
             
-            # Generate assistant response
-            with st.chat_message("assistant"):
-                with st.spinner("Processing question..."):
-                    try:
-                        # Using a synchronous client instead of async
-                        response = httpx.post(
-                            f"{API_URL}/answer",
-                            json={"question": prompt},
-                            timeout=60.0
-                        )
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            message_placeholder = st.empty()
-                            message_placeholder.markdown(data["answer"])
+            # Display chat messages
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+            
+            # Chat input
+            if prompt := st.chat_input("Ask a medical question..."):
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                
+                # Generate assistant response
+                with st.chat_message("assistant"):
+                    with st.spinner("Processing question..."):
+                        try:
+                            # Using a synchronous client instead of async
+                            response = httpx.post(
+                                f"{API_URL}/answer",
+                                json={"question": prompt},
+                                timeout=60.0
+                            )
                             
-                            # Add assistant response to chat history
-                            st.session_state.messages.append({"role": "assistant", "content": data["answer"]})
-                            
-                            # Show sources
-                            with st.expander("View Sources"):
-                                st.subheader("Sources")
-                                for i, source in enumerate(data["sources"]):
-                                    with st.expander(f"Source {i+1}"):
-                                        st.write(source["text"])
-                                        if "metadata" in source:
-                                            st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                        else:
-                            st.error(f"Error: {response.text}")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-                        st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {str(e)}"})
+                            if response.status_code == 200:
+                                data = response.json()
+                                message_placeholder = st.empty()
+                                message_placeholder.markdown(data["answer"])
+                                
+                                # Add assistant response to chat history
+                                st.session_state.messages.append({"role": "assistant", "content": data["answer"]})
+                                
+                                # Show sources
+                                with st.expander("View Sources"):
+                                    st.subheader("Sources")
+                                    for i, source in enumerate(data["sources"]):
+                                        with st.expander(f"Source {i+1}"):
+                                            st.write(source["text"])
+                                            if "metadata" in source:
+                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                            else:
+                                st.error(f"Error: {response.text}")
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+                            st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {str(e)}"})
         
-        # Suggested questions
-        with st.sidebar:
+        # Suggested questions in the second column
+        with suggested_col:
             st.subheader("Suggested Questions")
+            
+            # Add a style to make the buttons more visible and attractive
+            st.markdown("""
+            <style>
+            div.stButton > button {
+                width: 100%;
+                text-align: left;
+                padding: 0.5em;
+                margin-bottom: 0.5em;
+                background-color: #f0f7ff;
+                color: #0066cc;
+                border: 1px solid #99ccff;
+                border-radius: 5px;
+                font-size: 0.9em;
+                transition: all 0.3s;
+            }
+            div.stButton > button:hover {
+                background-color: #cce5ff;
+                border-color: #0066cc;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
             example_questions = [
                 "What medications is patient 12345 taking?",
                 "What are the recent lab results for the diabetic patient?",
@@ -429,11 +458,62 @@ Patient has maintained good glycemic control through medication compliance and d
                 "What is the patient's blood pressure trend?",
                 "Summarize the patient's medical history"
             ]
-            for q in example_questions:
-                if st.button(q):
-                    # Add user message to chat history
-                    st.session_state.messages.append({"role": "user", "content": q})
-                    st.rerun()
+            
+            # Group questions by categories to make them more organized
+            categories = {
+                "Patient Info": [example_questions[0], example_questions[4]],
+                "Medical Data": [example_questions[1], example_questions[3]],
+                "Clinical Questions": [example_questions[2]]
+            }
+            
+            # Display questions by category
+            for category, questions in categories.items():
+                st.markdown(f"#### {category}")
+                for i, q in enumerate(questions):
+                    if st.button(q, key=f"question_{category}_{i}"):
+                        # Add user message to chat history
+                        st.session_state.messages.append({"role": "user", "content": q})
+                        
+                        # Display the user message
+                        with st.chat_message("user"):
+                            st.markdown(q)
+                        
+                        # Generate assistant response
+                        with st.chat_message("assistant"):
+                            with st.spinner("Processing question..."):
+                                try:
+                                    # Using a synchronous client instead of async
+                                    response = httpx.post(
+                                        f"{API_URL}/answer",
+                                        json={"question": q},
+                                        timeout=60.0
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        data = response.json()
+                                        message_placeholder = st.empty()
+                                        message_placeholder.markdown(data["answer"])
+                                        
+                                        # Add assistant response to chat history
+                                        st.session_state.messages.append({"role": "assistant", "content": data["answer"]})
+                                        
+                                        # Show sources
+                                        with st.expander("View Sources"):
+                                            st.subheader("Sources")
+                                            for i, source in enumerate(data["sources"]):
+                                                with st.expander(f"Source {i+1}"):
+                                                    st.write(source["text"])
+                                                    if "metadata" in source:
+                                                        st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                    else:
+                                        st.error(f"Error: {response.text}")
+                                        st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {response.text}"})
+                                except Exception as e:
+                                    st.error(f"Error: {str(e)}")
+                                    st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {str(e)}"})
+                        
+                        # Force a rerun to update the UI after processing
+                        st.rerun()
 
     elif page == "Analysis":
         st.header("Patient Data Analysis")
