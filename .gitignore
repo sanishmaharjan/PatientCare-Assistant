@@ -81,4 +81,4 @@ tmp/
 
 # data files
 data/raw/
-data/processed
+data/processed/

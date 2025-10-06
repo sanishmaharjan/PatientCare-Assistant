@@ -1044,18 +1044,6 @@ Patient has maintained good glycemic control through medication compliance and d
                 <div class="format-item"><span class="format-icon">📝</span> Markdown (.md)</div>
             </div>
             """, unsafe_allow_html=True)
-            
-            # Processing steps with improved styling
-            with st.expander("How document processing works"):
-                st.markdown("""
-                <ol style="padding-left: 20px;">
-                    <li><strong>Document parsing:</strong> Extracting text content from various file formats</li>
-                    <li><strong>Text extraction:</strong> Converting documents to machine-readable format</li>
-                    <li><strong>Chunking:</strong> Breaking text into manageable segments for analysis</li>
-                    <li><strong>Embedding generation:</strong> Creating vector representations of text</li>
-                    <li><strong>Vector database indexing:</strong> Organizing data for fast retrieval</li>
-                </ol>
-                """, unsafe_allow_html=True)
         
         # Add a section for viewing existing documents in the system
         st.markdown("---")
@@ -1094,9 +1082,6 @@ Patient has maintained good glycemic control through medication compliance and d
         # Convert to dataframe for display
         docs_df = pd.DataFrame(documents)
         
-        # Display table of documents
-        st.dataframe(docs_df, use_container_width=True, hide_index=True)
-        
         # Add selection checkboxes to the dataframe
         if len(docs_df) > 0:
             # Add a selection column
@@ -1110,11 +1095,11 @@ Patient has maintained good glycemic control through medication compliance and d
                         "Select",
                         help="Select document",
                         default=False,
+                        width="small"
                     ),
                     "filename": st.column_config.TextColumn(
                         "Document Name",
                         help="The name of the document",
-                        width="medium"
                     ),
                     "added": st.column_config.TextColumn(
                         "Added",
