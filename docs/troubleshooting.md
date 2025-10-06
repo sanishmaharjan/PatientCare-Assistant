@@ -82,13 +82,15 @@ If you encounter issues with the `--process` command, try the following solution
 
 2. **Duplicate embedding IDs**: We've updated the embedding generator to use UUID-based IDs to prevent collisions.
 
-3. **Clean the vector database**: If you encounter issues with the ChromaDB database, you can clean it and start fresh:
+3. **Vector database collection issues**: If you encounter `Could not connect to vector database: Collection medical_documents does not exist` after restarting the backend API, it means the vector database collection was not properly initialized. We've fixed this by updating the retriever to automatically create the collection if it doesn't exist.
+
+4. **Clean the vector database**: If you encounter persistent issues with the ChromaDB database, you can clean it and start fresh:
    ```bash
    rm -rf data/processed/vector_db
    python src/main.py --process
    ```
 
-4. **Environment variables**: Make sure you have a `.env` file in the `src` directory with the required API keys and settings.
+5. **Environment variables**: Make sure you have a `.env` file in the `src` directory with the required API keys and settings.
 
 ## API and Frontend Issues
 

@@ -4,9 +4,17 @@ Retriever module for finding relevant patient information.
 
 import os
 import sys
+import logging
 from typing import List, Dict, Any
 
 import chromadb
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Local imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,10 +35,18 @@ class MedicalRetriever:
         # Initialize ChromaDB client
         try:
             self.client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
-            self.collection = self.client.get_collection("medical_documents")
+            
+            # Try to get collection or create it if it doesn't exist
+            try:
+                self.collection = self.client.get_collection("medical_documents")
+                logger.info("Connected to existing 'medical_documents' collection")
+            except ValueError:
+                logger.info("Creating new 'medical_documents' collection in vector database")
+                self.collection = self.client.create_collection("medical_documents")
+                
         except Exception as e:
-            print(f"Warning: Could not connect to vector database: {e}")
-            print(f"Vector database path: {VECTOR_DB_PATH}")
+            logger.error(f"Could not connect to vector database: {e}")
+            logger.error(f"Vector database path: {VECTOR_DB_PATH}")
             self.client = None
             self.collection = None
             
@@ -47,7 +63,7 @@ class MedicalRetriever:
             results: List of matching documents with metadata
         """
         if self.collection is None:
-            print("Warning: Vector database not initialized")
+            logger.warning("Vector database not initialized, cannot execute query")
             return []
             
         # Generate query embedding
@@ -63,7 +79,8 @@ class MedicalRetriever:
                     n_results=top_k
                 )
             except Exception as e:
-                print(f"Error searching with metadata filter: {e}")
+                logger.warning(f"Error searching with metadata filter: {e}")
+                logger.info("Falling back to standard query without filter")
                 # Fall back to standard query without filter
                 results = self.collection.query(
                     query_embeddings=[query_embedding],
@@ -97,7 +114,7 @@ class MedicalRetriever:
             documents: List of documents for the patient
         """
         if self.collection is None:
-            print("Warning: Vector database not initialized")
+            logger.warning("Vector database not initialized, cannot retrieve patient documents")
             return []
             
         # First try to find by exact patient ID match
