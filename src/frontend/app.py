@@ -459,11 +459,6 @@ Patient has maintained good glycemic control through medication compliance and d
         # Display suggested questions in the second column
         with suggested_col:
             st.subheader("Suggested Questions")
-            st.markdown("""
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 12px;">
-            Click any question below to get an instant answer. Questions are grouped by category.
-            </div>
-            """, unsafe_allow_html=True)
             
             # Add styles for question buttons and category toggle buttons
             st.markdown("""
@@ -621,22 +616,13 @@ Patient has maintained good glycemic control through medication compliance and d
                 ]
             }
             
-            # Add a hint about collapsible categories
-            st.markdown("""
-            <div style="background-color: #f0f7ff; border-left: 4px solid #0066cc; padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0;">
-                <p style="margin: 0; font-size: 0.9em; color: #333;">
-                    💡 <strong>Tip:</strong> Click on any category header to expand or collapse that section.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
             # Initialize session state for category collapse states if not present
             if "category_states" not in st.session_state:
                 st.session_state.category_states = {}
                 # Initialize with first category expanded, rest collapsed by default
                 for i, category in enumerate(categories.keys()):
-                    # Set first category as expanded, others as collapsed
-                    st.session_state.category_states[category] = (i > 0)  # True means collapsed
+                    # Set all category as collapsed by default
+                    st.session_state.category_states[category] = True  # True means collapsed
             
             # Add a clear hint about collapsible categories with an animation to draw attention
             st.markdown("""
@@ -690,9 +676,6 @@ Patient has maintained good glycemic control through medication compliance and d
                     font-weight: 500;
                 }
                 </style>
-                <div class="control-container">
-                    <div class="control-heading">CATEGORY CONTROLS</div>
-                </div>
                 """, unsafe_allow_html=True)
                 
                 # Add controls to expand/collapse all categories
