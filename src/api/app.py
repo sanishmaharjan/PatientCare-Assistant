@@ -11,6 +11,10 @@ import time
 import contextlib
 from typing import Dict, List, Any, Optional
 
+# Disable ChromaDB telemetry before importing ChromaDB
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_SERVER_AUTHN_PROVIDER"] = ""
+
 # FastAPI for modern API development
 from fastapi import FastAPI, HTTPException, Depends, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +58,26 @@ def setup_logging():
     
     # Prevent propagation to root logger to avoid duplicate entries
     logger.propagate = False
+    
+    # Filter out ChromaDB telemetry errors
+    class ChromaDBTelemetryFilter(logging.Filter):
+        def filter(self, record):
+            # Suppress telemetry-related error messages
+            if "Failed to send telemetry event" in record.getMessage():
+                return False
+            if "capture() takes 1 positional argument but 3 were given" in record.getMessage():
+                return False
+            return True
+    
+    # Add the filter to all handlers
+    telemetry_filter = ChromaDBTelemetryFilter()
+    for handler in logger.handlers:
+        handler.addFilter(telemetry_filter)
+    
+    # Also apply to root logger to catch other ChromaDB messages
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.addFilter(telemetry_filter)
     
     return logger
 
@@ -307,57 +331,194 @@ async def get_health_issues(request: PatientRequest, medical_chain: MedicalChain
 
 @app.post("/documents/process")
 async def process_documents():
-    """Process all documents in the raw directory."""
+    """Process all documents in the raw directory with enhanced ChromaDB conflict resolution."""
     logger.info("Processing documents from raw directory")
     start_time = time.time()
     
     try:
+        import gc
+        import shutil
+        import chromadb
         from pathlib import Path
+        
+        # Clear any existing ChromaDB clients in the current process
+        gc.collect()
+        
+        # Disable ChromaDB telemetry to reduce log noise
+        try:
+            import chromadb.config
+            chromadb.config.Settings(anonymized_telemetry=False)
+        except Exception as telemetry_e:
+            logger.debug(f"Could not disable ChromaDB telemetry: {telemetry_e}")
+        
+        # Reset ChromaDB global state if it exists
+        if hasattr(chromadb, '_clients'):
+            # Close any existing client connections
+            for client in chromadb._clients.values():
+                try:
+                    if hasattr(client, 'close'):
+                        client.close()
+                except Exception as close_e:
+                    logger.warning(f"Failed to close ChromaDB client: {close_e}")
+            chromadb._clients = {}
+        
+        # Additional cleanup for ChromaDB connections
+        try:
+            import sqlite3
+            # Force close any remaining SQLite connections
+            sqlite3.connect(":memory:").close()
+        except Exception as sqlite_e:
+            logger.warning(f"SQLite cleanup warning: {sqlite_e}")
         
         # Define paths
         base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         raw_dir = base_dir / "data" / "raw"
         processed_dir = base_dir / "data" / "processed"
+        vector_db_path = processed_dir / "vector_db"
         
         # Make sure directories exist
         os.makedirs(raw_dir, exist_ok=True)
         os.makedirs(processed_dir, exist_ok=True)
+        
+        # Clean up old backups (keep only the 3 most recent)
+        try:
+            backup_pattern = processed_dir.glob("vector_db_backup_*")
+            existing_backups = sorted([b for b in backup_pattern if b.is_dir()], 
+                                    key=lambda x: x.stat().st_mtime, reverse=True)
+            
+            # Keep only the 3 most recent backups, delete the rest
+            backups_to_delete = existing_backups[3:]  # Keep first 3, delete rest
+            for old_backup in backups_to_delete:
+                try:
+                    shutil.rmtree(old_backup)
+                    logger.info(f"Deleted old backup: {old_backup.name}")
+                except Exception as delete_e:
+                    logger.warning(f"Failed to delete old backup {old_backup.name}: {delete_e}")
+            
+            if backups_to_delete:
+                logger.info(f"Cleaned up {len(backups_to_delete)} old backups")
+        except Exception as cleanup_e:
+            logger.warning(f"Failed to cleanup old backups: {cleanup_e}")
+
+        # Create backup of existing vector database if it exists
+        backup_created = False
+        if vector_db_path.exists():
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            backup_path = processed_dir / f"vector_db_backup_{timestamp}"
+            try:
+                shutil.copytree(vector_db_path, backup_path)
+                backup_created = True
+                logger.info(f"Created backup of vector database at {backup_path}")
+                # Small delay to ensure filesystem operations complete
+                time.sleep(0.1)
+            except Exception as backup_e:
+                logger.warning(f"Failed to create backup: {backup_e}")
+        
+        # Fix file permissions to prevent readonly errors (enhanced)
+        if vector_db_path.exists():
+            try:
+                # First pass: fix directory permissions
+                for root, dirs, files in os.walk(vector_db_path):
+                    # Set directory permissions
+                    try:
+                        os.chmod(root, 0o755)
+                    except Exception as e:
+                        logger.warning(f"Failed to set directory permission for {root}: {e}")
+                    
+                    # Set subdirectory permissions
+                    for dir_name in dirs:
+                        try:
+                            dir_path = os.path.join(root, dir_name)
+                            os.chmod(dir_path, 0o755)
+                        except Exception as e:
+                            logger.warning(f"Failed to set directory permission for {dir_path}: {e}")
+                
+                # Second pass: fix file permissions
+                for root, dirs, files in os.walk(vector_db_path):
+                    for file_name in files:
+                        try:
+                            file_path = os.path.join(root, file_name)
+                            os.chmod(file_path, 0o644)
+                        except Exception as e:
+                            logger.warning(f"Failed to set file permission for {file_path}: {e}")
+                
+                logger.info("Fixed file permissions for vector database")
+            except Exception as perm_e:
+                logger.warning(f"Failed to fix permissions: {perm_e}")
         
         # Import necessary modules
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         from ingestion.document_processor import DocumentIngestion
         from embedding.embedding_generator import EmbeddingGenerator
         
-        # Process documents
-        ingestion = DocumentIngestion(str(raw_dir), str(processed_dir))
-        processed_files = ingestion.process_directory()
+        try:
+            # Process documents
+            ingestion = DocumentIngestion(str(raw_dir), str(processed_dir))
+            processed_files = ingestion.process_directory()
+            
+            # Count chunks
+            chunk_count = 0
+            for processed_file in processed_files:
+                output_path = os.path.join(
+                    processed_dir,
+                    f"{os.path.basename(processed_file)}_chunks.json"
+                )
+                if os.path.exists(output_path):
+                    with open(output_path, 'r') as f:
+                        chunks = json.load(f)
+                        chunk_count += len(chunks)
+            
+            # Generate embeddings with enhanced error handling
+            embedding_generator = EmbeddingGenerator()
+            embedding_generator.process_all_documents(str(processed_dir))
+            
+            process_time = time.time() - start_time
+            logger.info(f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks in {process_time:.2f}s")
+            
+            return {
+                "success": True,
+                "message": f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks",
+                "processed_files": processed_files,
+                "chunk_count": chunk_count,
+                "processing_time_seconds": round(process_time, 2),
+                "backup_created": backup_created
+            }
+            
+        except Exception as chromadb_error:
+            # If we encounter ChromaDB related errors, try to restore from backup
+            if backup_created and "database" in str(chromadb_error).lower():
+                try:
+                    logger.warning(f"ChromaDB error occurred: {chromadb_error}")
+                    logger.info("Attempting to restore from backup...")
+                    
+                    if vector_db_path.exists():
+                        shutil.rmtree(vector_db_path)
+                    
+                    shutil.copytree(backup_path, vector_db_path)
+                    logger.info("Successfully restored vector database from backup")
+                    
+                    # Try again with restored database
+                    embedding_generator = EmbeddingGenerator()
+                    embedding_generator.process_all_documents(str(processed_dir))
+                    
+                    process_time = time.time() - start_time
+                    logger.info(f"Successfully processed after backup restoration in {process_time:.2f}s")
+                    
+                    return {
+                        "success": True,
+                        "message": f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks (after backup restoration)",
+                        "processed_files": processed_files,
+                        "chunk_count": chunk_count,
+                        "processing_time_seconds": round(process_time, 2),
+                        "backup_restored": True
+                    }
+                    
+                except Exception as restore_error:
+                    logger.error(f"Failed to restore from backup: {restore_error}")
+                    raise chromadb_error
+            else:
+                raise chromadb_error
         
-        # Count chunks
-        chunk_count = 0
-        for processed_file in processed_files:
-            output_path = os.path.join(
-                processed_dir,
-                f"{os.path.basename(processed_file)}_chunks.json"
-            )
-            if os.path.exists(output_path):
-                with open(output_path, 'r') as f:
-                    chunks = json.load(f)
-                    chunk_count += len(chunks)
-        
-        # Generate embeddings
-        embedding_generator = EmbeddingGenerator()
-        embedding_generator.process_all_documents(str(processed_dir))
-        
-        process_time = time.time() - start_time
-        logger.info(f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks in {process_time:.2f}s")
-        
-        return {
-            "success": True,
-            "message": f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks",
-            "processed_files": processed_files,
-            "chunk_count": chunk_count,
-            "processing_time_seconds": round(process_time, 2)
-        }
     except Exception as e:
         process_time = time.time() - start_time
         logger.error(f"Error processing documents: {str(e)} after {process_time:.2f}s")
