@@ -34,8 +34,6 @@ This application helps healthcare providers quickly access and analyze patient i
 
 # Authentication (simplified for demo)
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/000000/hospital-3.png", width=100)
-    st.title("Healthcare Provider")
     
     # Set default username for the session
     if "username" not in st.session_state:
@@ -43,9 +41,6 @@ with st.sidebar:
     
     # Always set logged_in to True to bypass authentication
     st.session_state.logged_in = True
-    
-    # Display welcome message
-    st.success(f"Welcome, {st.session_state.username}")
     
     # Sidebar navigation
     st.title("Navigation")
