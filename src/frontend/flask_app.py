@@ -52,7 +52,6 @@ BASE_TEMPLATE = """
         <ul>
             <li><a href="/">Dashboard</a></li>
             <li><a href="/qa">Medical Q&A</a></li>
-            <li><a href="/settings">Settings</a></li>
         </ul>
     </div>
     <div class="content">
@@ -201,23 +200,6 @@ QA_TEMPLATE = """
 {% endblock %}
 """
 
-SETTINGS_TEMPLATE = """
-{% extends "base_template" %}
-{% block content %}
-<h2>Settings</h2>
-<div class="card">
-    <h3>User Profile</h3>
-    <p><strong>Username:</strong> {{ session.username }}</p>
-    <p><strong>Email:</strong> {{ session.username.lower() }}@hospital.org</p>
-</div>
-
-<div class="card">
-    <h3>API Configuration</h3>
-    <p><strong>API URL:</strong> {{ api_url }}</p>
-</div>
-{% endblock %}
-"""
-
 # Routes
 @app.route('/')
 def index():
@@ -324,19 +306,6 @@ def qa():
         question=question,
         answer=answer,
         sources=sources
-    )
-
-@app.route('/settings')
-def settings():
-    # Ensure user is always considered logged in
-    session['logged_in'] = True
-    if 'username' not in session:
-        session['username'] = 'Provider'
-    
-    return render_template_string(
-        SETTINGS_TEMPLATE,
-        base_template=BASE_TEMPLATE,
-        api_url=API_URL
     )
 
 def start_frontend():

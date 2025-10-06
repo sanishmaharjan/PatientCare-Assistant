@@ -49,7 +49,7 @@ with st.sidebar:
     
     # Sidebar navigation
     st.title("Navigation")
-    page = st.radio("Select a page", ["Dashboard", "Q&A", "Analysis", "Settings"])
+    page = st.radio("Select a page", ["Dashboard", "Q&A", "Analysis"])
 
 # Only show content if logged in
 if not st.session_state.get("logged_in", False):
@@ -889,47 +889,6 @@ Patient has maintained good glycemic control through medication compliance and d
                 'Count': [45, 120, 210, 175, 90]
             })
             st.bar_chart(age_data.set_index('Age Group'))
-    
-    elif page == "Settings":
-        st.header("Settings")
-        
-        # Settings tabs
-        tabs = st.tabs(["User Profile", "API Configuration", "Model Settings", "Display Settings"])
-        
-        with tabs[0]:
-            st.subheader("User Profile")
-            st.write(f"Username: {st.session_state.username}")
-            st.write("Role: Healthcare Provider")
-            
-            with st.expander("Edit Profile"):
-                st.text_input("Name", value=st.session_state.username)
-                st.text_input("Email", value=f"{st.session_state.username.lower()}@hospital.org")
-                st.selectbox("Department", ["Primary Care", "Cardiology", "Endocrinology", "Neurology"])
-                if st.button("Save Changes"):
-                    st.success("Profile updated successfully")
-        
-        with tabs[1]:
-            st.subheader("API Configuration")
-            st.text_input("API Endpoint", value=API_URL)
-            api_key = st.text_input("OpenAI API Key", value="••••••••••••••••••••••••", type="password")
-            if st.button("Test Connection"):
-                st.success("Connection successful")
-        
-        with tabs[2]:
-            st.subheader("Model Settings")
-            st.selectbox("Embedding Model", ["text-embedding-ada-002", "text-embedding-3-small", "text-embedding-3-large"])
-            st.selectbox("Completion Model", ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"])
-            st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.2, step=0.1)
-            st.slider("Max Tokens", min_value=100, max_value=4000, value=1500, step=100)
-            if st.button("Save Model Settings"):
-                st.success("Model settings saved")
-        
-        with tabs[3]:
-            st.subheader("Display Settings")
-            st.checkbox("Dark Mode", value=False)
-            st.checkbox("Compact View", value=True)
-            st.selectbox("Font Size", ["Small", "Medium", "Large"])
-            st.radio("Default Page", ["Dashboard", "Q&A", "Analysis"])
 
 # Footer
 st.markdown("---")
