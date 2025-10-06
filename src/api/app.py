@@ -105,6 +105,16 @@ class DocumentListResponse(BaseModel):
     documents: List[DocumentInfo] = Field(default_factory=list, description="List of documents")
 
 
+class SampleFileInfo(BaseModel):
+    filename: str = Field(..., description="The sample file name")
+    size: str = Field(..., description="Size of the file")
+    type: str = Field(..., description="Type of document")
+
+
+class SampleDataResponse(BaseModel):
+    files: List[SampleFileInfo] = Field(default_factory=list, description="List of sample data files")
+
+
 class ProcessingResponse(BaseModel):
     success: bool = Field(..., description="Whether processing was successful")
     message: str = Field(..., description="Status message")
@@ -537,6 +547,127 @@ async def reset_vector_database():
         process_time = time.time() - start_time
         logger.error(f"Error resetting vector database: {str(e)} after {process_time:.2f}s")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/documents/sample-data", response_model=SampleDataResponse)
+async def list_sample_data():
+    """Get a list of available sample data files."""
+    logger.info("Listing sample data files")
+    start_time = time.time()
+    
+    try:
+        import os
+        from pathlib import Path
+        
+        # Define path to sample data directory
+        base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        sample_data_dir = base_dir / "data" / "sample-data"
+        
+        # Check if directory exists
+        if not os.path.exists(sample_data_dir):
+            logger.warning(f"Sample data directory not found at {sample_data_dir}")
+            return SampleDataResponse(files=[])
+        
+        # Get list of files
+        sample_files = [f for f in os.listdir(sample_data_dir) if not f.startswith('.')]
+        
+        if not sample_files:
+            logger.info("No sample data files available")
+            return SampleDataResponse(files=[])
+        
+        # Create file info objects for each sample file
+        file_info_list = []
+        for filename in sorted(sample_files):
+            file_path = sample_data_dir / filename
+            
+            # Get file size in human-readable format
+            size_bytes = os.path.getsize(file_path)
+            if size_bytes < 1024:
+                size = f"{size_bytes} B"
+            elif size_bytes < 1024 * 1024:
+                size = f"{size_bytes / 1024:.1f} KB"
+            else:
+                size = f"{size_bytes / (1024 * 1024):.1f} MB"
+            
+            # Determine file type
+            if filename.endswith('.pdf'):
+                file_type = "PDF"
+            elif filename.endswith(('.docx', '.doc')):
+                file_type = "DOC"
+            elif filename.endswith('.md'):
+                file_type = "MD"
+            else:
+                file_type = "TXT"
+            
+            # Add to list
+            file_info_list.append(
+                SampleFileInfo(
+                    filename=filename,
+                    size=size,
+                    type=file_type
+                )
+            )
+        
+        # Create response
+        response = SampleDataResponse(files=file_info_list)
+        
+        logger.info(f"Retrieved {len(file_info_list)} sample files in {time.time() - start_time:.2f}s")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error retrieving sample data files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving sample data files: {str(e)}")
+
+
+@app.get("/documents/sample-data/{filename}")
+async def download_sample_file(filename: str):
+    """Download a sample data file."""
+    logger.info(f"Downloading sample file: {filename}")
+    
+    try:
+        import os
+        from pathlib import Path
+        from fastapi.responses import FileResponse
+        
+        # Validate filename to prevent directory traversal
+        if '..' in filename or '/' in filename:
+            logger.warning(f"Invalid filename requested: {filename}")
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
+        # Define path to sample file
+        base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        sample_file_path = base_dir / "data" / "sample-data" / filename
+        
+        # Check if file exists
+        if not os.path.exists(sample_file_path) or not os.path.isfile(sample_file_path):
+            logger.warning(f"Sample file not found: {sample_file_path}")
+            raise HTTPException(status_code=404, detail=f"Sample file '{filename}' not found")
+        
+        # Determine media type
+        media_type = None
+        if filename.endswith('.pdf'):
+            media_type = "application/pdf"
+        elif filename.endswith('.docx'):
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif filename.endswith('.doc'):
+            media_type = "application/msword"
+        elif filename.endswith('.md'):
+            media_type = "text/markdown"
+        else:
+            media_type = "text/plain"
+        
+        # Return file response
+        return FileResponse(
+            path=str(sample_file_path),
+            filename=filename,
+            media_type=media_type
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading sample file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error downloading sample file: {str(e)}")
 
 
 def start_api(log_level="info"):

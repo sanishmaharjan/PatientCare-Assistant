@@ -850,6 +850,16 @@ Patient has maintained good glycemic control through medication compliance and d
                 </ol>
             </div>
             """, unsafe_allow_html=True)
+
+            st.markdown("""
+                <div class="format-box">
+                    <div class="format-header">SUPPORTED FORMATS</div>
+                    <div class="format-item"><span class="format-icon">📕</span> PDF (.pdf)</div>
+                    <div class="format-item"><span class="format-icon">📘</span> Word (.docx, .doc)</div>
+                    <div class="format-item"><span class="format-icon">📄</span> Text (.txt)</div>
+                    <div class="format-item"><span class="format-icon">📝</span> Markdown (.md)</div>
+                </div>
+                """, unsafe_allow_html=True)
             
             # Add clean-up option
             if "show_cleanup" not in st.session_state:
@@ -1036,14 +1046,108 @@ Patient has maintained good glycemic control through medication compliance and d
                 font-size: 1.2em;
             }
             </style>
-            <div class="format-box">
-                <div class="format-header">📁 SUPPORTED FORMATS</div>
-                <div class="format-item"><span class="format-icon">📕</span> PDF (.pdf)</div>
-                <div class="format-item"><span class="format-icon">📘</span> Word (.docx, .doc)</div>
-                <div class="format-item"><span class="format-icon">📄</span> Text (.txt)</div>
-                <div class="format-item"><span class="format-icon">📝</span> Markdown (.md)</div>
-            </div>
+
             """, unsafe_allow_html=True)
+
+            # Sample data section
+            st.markdown("---")
+            st.subheader("Sample Data")
+            st.markdown("Download these sample medical records to test the system's capabilities.")
+            
+            # Get sample data files from API
+            success, response_data, error_message = api_request("documents/sample-data", method="get")
+            
+            if success and response_data:
+                sample_files = response_data.get("files", [])
+                # Create a styled container for sample files
+                st.markdown("""
+                <style>
+                .file-item {
+                    padding: 8px 10px;
+                    margin: 4px 0;
+                    border-radius: 4px;
+                    border: 1px solid #eee;
+                    background-color: #f9f9f9;
+                }
+                .file-type {
+                    display: inline-block;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-size: 0.8em;
+                    font-weight: bold;
+                    margin-left: 8px;
+                }
+                .pdf-type {
+                    background-color: #ffecec;
+                    color: #e53935;
+                }
+                .md-type {
+                    background-color: #e3f2fd;
+                    color: #1976d2;
+                }
+                .doc-type {
+                    background-color: #e8f5e9;
+                    color: #388e3c;
+                }
+                .txt-type {
+                    background-color: #f5f5f5;
+                    color: #616161;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Display sample files in a nice grid
+                for i, file_info in enumerate(sorted(sample_files, key=lambda x: x["filename"])):
+                    # Get file information
+                    file = file_info["filename"]
+                    file_type = file_info["type"]
+                    file_size = file_info["size"]
+                    
+                    # Determine CSS class based on file type
+                    if file_type == "PDF":
+                        type_class = "pdf-type"
+                    elif file_type == "DOC":
+                        type_class = "doc-type"
+                    elif file_type == "MD":
+                        type_class = "md-type"
+                    else:
+                        type_class = "txt-type"
+                    
+                    # Create columns for file display and download button
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        # Display file name with styled type badge and size
+                        st.markdown(f"""
+                        <div class="file-item">
+                            {file} <span class="file-type {type_class}">{file_type}</span>
+                            <span style="color:#666; font-size:0.8em; margin-left:8px;">({file_size})</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        # Create download button that links to the API endpoint
+                        download_url = f"{API_URL}/documents/sample-data/{file}"
+                        st.markdown(f'''
+                            <a href="{download_url}" download="{file}" target="_blank">
+                                <button style="background-color:#4CAF50; color:white; border:none; 
+                                padding:8px 16px; text-align:center; text-decoration:none; 
+                                display:inline-block; font-size:14px; border-radius:4px; 
+                                cursor:pointer;">Download</button>
+                            </a>
+                        ''', unsafe_allow_html=True)
+                
+                # Add a hint about the sample files
+                st.info("👆 Download these files and then upload them in the file uploader above to test the system.")
+                
+                # End of if sample_files check - note there should have been a check here
+                if not sample_files:
+                    st.info("No sample data files available.")
+            else:
+                if error_message:
+                    st.warning(f"Error retrieving sample data: {error_message}")
+                else:
+                    st.warning("No sample data available.")
         
         # Add a section for viewing existing documents in the system
         st.markdown("---")

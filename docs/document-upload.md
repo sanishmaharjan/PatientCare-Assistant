@@ -27,9 +27,19 @@ The pipeline consists of the following steps:
 
 The frontend interface allows users to:
 - Upload multiple documents simultaneously
+- Download sample medical data files for testing
 - View upload and processing progress
 - Manage existing documents
 - Reset the vector database when needed
+
+### Sample Data
+
+The system includes sample medical data files that users can download and use for testing:
+
+- Patient records in Markdown format (PATIENT-123XX.md)
+- Medical reports in PDF format (PATIENT-12350.pdf)
+
+These sample files are located in the `data/sample-data` directory and can be downloaded directly from the Upload Data page. Users can then upload these files to test the document processing pipeline.
 
 ### API Endpoints
 
@@ -39,7 +49,8 @@ The backend provides the following API endpoints for document management:
 - `POST /documents/process`: Process all uploaded documents
 - `GET /documents`: List all available documents
 - `DELETE /documents/{filename}`: Delete a specific document
-- `POST /documents/reset`: Reset the vector database
+- `GET /documents/sample-data`: List available sample data files
+- `GET /documents/sample-data/{filename}`: Download a specific sample file
 
 ### Document Processing
 
@@ -50,6 +61,24 @@ Documents are processed using LangChain's document loaders and text splitters. T
 3. Saving processed chunks as JSON files
 4. Generating embeddings using OpenAI's embedding model
 5. Storing embeddings in ChromaDB vector database
+
+## API Models
+
+The application uses Pydantic models for request and response validation:
+
+### Document Models
+
+- **DocumentInfo**: Contains information about a document in the system, including filename, date added, size, type, and processing status.
+- **DocumentListResponse**: Response model for the `/documents` endpoint, containing a list of `DocumentInfo` objects.
+
+### Sample Data Models
+
+- **SampleFileInfo**: Contains information about a sample data file, including filename, size, and type.
+- **SampleDataResponse**: Response model for the `/documents/sample-data` endpoint, containing a list of `SampleFileInfo` objects.
+
+### Processing Models
+
+- **ProcessingResponse**: Response model for document processing operations, including success status, message, and list of processed files.
 
 ## Error Handling
 
@@ -73,6 +102,7 @@ Document data is stored in several locations:
 - Raw documents: `data/raw/`
 - Processed chunks: `data/processed/*.json`
 - Vector database: `data/processed/vector_db/`
+- Sample data files: `data/sample-data/`
 
 ## Performance Considerations
 
