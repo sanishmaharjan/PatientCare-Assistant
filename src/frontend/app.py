@@ -861,39 +861,6 @@ Patient has maintained good glycemic control through medication compliance and d
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Add clean-up option
-            if "show_cleanup" not in st.session_state:
-                st.session_state.show_cleanup = False
-            
-            col1a, col1b = st.columns([5, 1])
-            with col1b:
-                if st.button("⚙️", help="Advanced options"):
-                    st.session_state.show_cleanup = not st.session_state.show_cleanup
-            
-            if st.session_state.show_cleanup:
-                with st.expander("Vector Database Management", expanded=True):
-                    st.markdown("**Reset Document Database**")
-                    st.caption("This will remove all processed documents and clear the vector database.")
-                    if st.button("🗑️ Reset Document Database", use_container_width=True):
-                        with st.spinner("Resetting database..."):
-                            try:
-                                # Use API endpoint to reset database
-                                with httpx.Client() as client:
-                                    response = client.post(
-                                        f"{API_URL}/documents/reset",
-                                        timeout=30.0
-                                    )
-                                    
-                                    if response.status_code == 200:
-                                        st.success("Database reset successfully!")
-                                    else:
-                                        st.error(f"Error resetting database: {response.text}")
-                                
-                                time.sleep(1)
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error resetting database: {str(e)}")
-            
             uploaded_files = st.file_uploader(
                 "Drag and drop files here", 
                 type=["pdf", "docx", "txt", "md"], 
@@ -1235,9 +1202,9 @@ Patient has maintained good glycemic control through medication compliance and d
             edited_df = docs_df
         
         # Add download/management options
-        manage_col1, manage_col2, manage_col3 = st.columns(3)
+        manage_col1, manage_col2, manage_col3, manage_col4 = st.columns(4)
         with manage_col1:
-            search_button = st.button("🔍 Search Documents", use_container_width=True)
+            search_button = st.button("💬 Medical Q&A", use_container_width=True)
             if search_button:
                 st.session_state.page = "Q&A"
                 st.rerun()
@@ -1316,6 +1283,27 @@ Patient has maintained good glycemic control through medication compliance and d
                         st.warning("No files found for download")
                 else:
                     st.info("No documents selected")
+        
+        with manage_col4:
+            refresh_button = st.button("🔄 Reset Document Database", use_container_width=True)
+            if refresh_button:
+                with st.spinner("Resetting database..."):
+                    try:
+                        time.sleep(1)
+                        # Use API endpoint to reset database
+                        with httpx.Client() as client:
+                            response = client.post(
+                                f"{API_URL}/documents/reset",
+                                timeout=30.0
+                            )
+                            
+                            if response.status_code == 200:
+                                st.success("Database reset successfully!")
+                            else:
+                                st.error(f"Error resetting database: {response.text}")
+
+                    except Exception as e:
+                        st.error(f"Error resetting database: {str(e)}")
             
         # Usage statistics
         st.markdown("---")
