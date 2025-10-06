@@ -369,7 +369,7 @@ Patient has maintained good glycemic control through medication compliance and d
         """)
         
         # Create a two-column layout for the main content and suggested questions
-        main_col, suggested_col = st.columns([3, 1])
+        main_col, suggested_col = st.columns([2, 1])
         
         with main_col:
             # Chat interface
@@ -426,21 +426,31 @@ Patient has maintained good glycemic control through medication compliance and d
         # Suggested questions in the second column
         with suggested_col:
             st.subheader("Suggested Questions")
+            st.markdown("""
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 12px;">
+            Click any question below to get an instant answer. Questions are grouped by category.
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Add a style to make the buttons more visible and attractive
+            # Add styles for question buttons and category toggle buttons
             st.markdown("""
             <style>
+            /* Style for regular question buttons */
             div.stButton > button {
                 width: 100%;
                 text-align: left;
-                padding: 0.5em;
-                margin-bottom: 0.5em;
+                padding: 0.4em 0.6em;
+                margin-bottom: 0.4em;
                 background-color: #f0f7ff;
                 color: #0066cc;
                 border: 1px solid #99ccff;
                 border-radius: 5px;
-                font-size: 0.9em;
+                font-size: 0.85em;
                 transition: all 0.3s;
+                line-height: 1.2;
+                white-space: normal;
+                height: auto;
+                min-height: 0;
             }
             div.stButton > button:hover {
                 background-color: #cce5ff;
@@ -448,72 +458,335 @@ Patient has maintained good glycemic control through medication compliance and d
                 transform: translateY(-2px);
                 box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             }
+            
+            /* Ensure question buttons stand out from category headers */
+            div.stButton > button:not(:has(span:first-child:contains("📂"))):not(:has(span:first-child:contains("📁"))) {
+                background-color: #f0f7ff;
+                font-size: 0.85em;
+                padding: 6px 10px;
+                margin-bottom: 5px;
+            }
+            
+            /* Style for category toggle buttons */
+            [data-testid="stButton"] > button[kind="secondary"] {
+                background-color: #f8f9fa;
+                color: #444;
+                font-size: 0.95em;
+                font-weight: 600;
+                text-align: left;
+                border-left: 4px solid #0066cc;
+                padding: 8px 10px;
+                margin-top: 0.8em;
+                margin-bottom: 0.4em;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+            }
+            [data-testid="stButton"] > button[kind="secondary"]:hover {
+                background-color: #e9ecef;
+                transform: translateY(-1px);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            /* Special styling for category headers */
+            button[data-testid="baseButton-secondary"] {
+                position: relative;
+                width: 100%;
+            }
+            
+            /* Add styling for category buttons */
+            div.stButton > button:has(span:first-child:contains("📂")) {
+                background-color: #e6f0ff !important;
+                color: #0066cc !important;
+                border-left: 4px solid #0066cc !important;
+                font-weight: 600 !important;
+                padding-left: 12px !important;
+            }
+            
+            div.stButton > button:has(span:first-child:contains("📁")) {
+                background-color: #edf2f7 !important;
+                color: #555 !important;
+                border-left: 4px solid #555 !important;
+                font-weight: 600 !important;
+                padding-left: 12px !important;
+            }
+            
+            /* Special styling for expanded/collapsed buttons */
+            button[data-testid="baseButton-secondary"] {
+                width: 100%;
+            }
             </style>
             """, unsafe_allow_html=True)
             
-            example_questions = [
-                "What medications is patient 12345 taking?",
-                "What are the recent lab results for the diabetic patient?",
-                "Are there any drug interactions to be concerned about?",
-                "What is the patient's blood pressure trend?",
-                "Summarize the patient's medical history"
-            ]
-            
             # Group questions by categories to make them more organized
             categories = {
-                "Patient Info": [example_questions[0], example_questions[4]],
-                "Medical Data": [example_questions[1], example_questions[3]],
-                "Clinical Questions": [example_questions[2]]
+                "Patient Info": [
+                    "What medications is patient 12345 taking?",
+                    "Summarize the patient's medical history",
+                    "When was the last time the patient visited the clinic?",
+                    "Is the patient allergic to any medications?",
+                    "What is the patient's current diagnosis?",
+                    "What is the patient's family medical history?",
+                    "Has the patient reported any new symptoms?",
+                    "Show the patient's vital signs from last visit",
+                    "What is the patient's current BMI and weight trend?",
+                    "What social determinants of health affect this patient?"
+                ],
+                "Medical Data": [
+                    "What are the recent lab results for the diabetic patient?",
+                    "What is the patient's blood pressure trend?",
+                    "Show the patient's HbA1c levels over the last year",
+                    "What were the findings from the latest chest X-ray?",
+                    "Are there any abnormal values in the CBC results?",
+                    "Show the patient's lipid profile over time",
+                    "What is the patient's kidney function status?",
+                    "Show the trend of inflammatory markers",
+                    "What imaging studies have been performed in the last year?",
+                    "Compare current lab values with results from 6 months ago",
+                    "Show the most recent ECG interpretation"
+                ],
+                "Treatment & Medications": [
+                    "Has the patient been compliant with their medication regimen?",
+                    "What is the current dosage for metformin?",
+                    "When was the last medication adjustment made?",
+                    "List all prescription changes in the last 6 months",
+                    "What are the possible side effects of the current medication?",
+                    "Are there any contraindications for the current medication?",
+                    "What alternative medications could be considered?",
+                    "What is the treatment protocol for this condition?",
+                    "Has the patient reported any adverse drug reactions?",
+                    "What is the recommended titration schedule?",
+                    "Are there any non-pharmacological treatments to consider?"
+                ],
+                "Clinical Questions": [
+                    "Are there any drug interactions to be concerned about?",
+                    "What are the recommended follow-up tests?",
+                    "Should we consider changing the treatment plan?",
+                    "Are there any clinical trials suitable for this patient?",
+                    "What lifestyle modifications would benefit this patient?",
+                    "What are the latest guidelines for managing this condition?",
+                    "What is the differential diagnosis for these symptoms?",
+                    "What are the risk factors for disease progression?",
+                    "What comorbidities should we be monitoring?",
+                    "What is the prognosis for this condition?",
+                    "What warning signs should the patient watch for?",
+                    "How does this condition affect other health parameters?"
+                ],
+                "Care Management": [
+                    "What specialists has the patient seen recently?",
+                    "Summarize the care plan for managing diabetes",
+                    "What preventive screenings are due?",
+                    "Has the patient completed all recommended vaccinations?",
+                    "What are the patient's health goals?",
+                    "What referrals need to be made?",
+                    "What is the patient's care coordination status?",
+                    "When should the patient be scheduled for follow-up?",
+                    "What educational materials should be provided?",
+                    "What support services might benefit this patient?",
+                    "Has the patient been screened for depression?",
+                    "What telehealth options are appropriate for this patient?",
+                    "What is the patient's medication adherence plan?"
+                ]
             }
             
-            # Display questions by category
-            for category, questions in categories.items():
-                st.markdown(f"#### {category}")
-                for i, q in enumerate(questions):
-                    if st.button(q, key=f"question_{category}_{i}"):
-                        # Add user message to chat history
-                        st.session_state.messages.append({"role": "user", "content": q})
-                        
-                        # Display the user message
-                        with st.chat_message("user"):
-                            st.markdown(q)
-                        
-                        # Generate assistant response
-                        with st.chat_message("assistant"):
-                            with st.spinner("Processing question..."):
-                                try:
-                                    # Using a synchronous client instead of async
-                                    response = httpx.post(
-                                        f"{API_URL}/answer",
-                                        json={"question": q},
-                                        timeout=60.0
-                                    )
-                                    
-                                    if response.status_code == 200:
-                                        data = response.json()
-                                        message_placeholder = st.empty()
-                                        message_placeholder.markdown(data["answer"])
-                                        
-                                        # Add assistant response to chat history
-                                        st.session_state.messages.append({"role": "assistant", "content": data["answer"]})
-                                        
-                                        # Show sources
-                                        with st.expander("View Sources"):
-                                            st.subheader("Sources")
-                                            for i, source in enumerate(data["sources"]):
-                                                with st.expander(f"Source {i+1}"):
-                                                    st.write(source["text"])
-                                                    if "metadata" in source:
-                                                        st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                                    else:
-                                        st.error(f"Error: {response.text}")
-                                        st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {response.text}"})
-                                except Exception as e:
-                                    st.error(f"Error: {str(e)}")
-                                    st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {str(e)}"})
-                        
-                        # Force a rerun to update the UI after processing
+            # Add a hint about collapsible categories
+            st.markdown("""
+            <div style="background-color: #f0f7ff; border-left: 4px solid #0066cc; padding: 8px 12px; margin: 10px 0; border-radius: 0 4px 4px 0;">
+                <p style="margin: 0; font-size: 0.9em; color: #333;">
+                    💡 <strong>Tip:</strong> Click on any category header to expand or collapse that section.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Initialize session state for category collapse states if not present
+            if "category_states" not in st.session_state:
+                st.session_state.category_states = {}
+                # Initialize with first category expanded, rest collapsed by default
+                for i, category in enumerate(categories.keys()):
+                    # Set first category as expanded, others as collapsed
+                    st.session_state.category_states[category] = (i > 0)  # True means collapsed
+            
+            # Add a clear hint about collapsible categories with an animation to draw attention
+            st.markdown("""
+            <style>
+            @keyframes pulse {
+                0% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.4); }
+                70% { box-shadow: 0 0 0 6px rgba(0, 102, 204, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0); }
+            }
+            .tip-box {
+                background-color: #f0f7ff; 
+                border-left: 4px solid #0066cc; 
+                padding: 10px 15px; 
+                margin: 10px 0 15px; 
+                border-radius: 0 4px 4px 0;
+                animation: pulse 2s infinite;
+                display: flex;
+                align-items: center;
+            }
+            .tip-icon {
+                font-size: 1.5em;
+                margin-right: 10px;
+                color: #0066cc;
+            }
+            </style>
+            <div class="tip-box">
+                <div class="tip-icon">💡</div>
+                <div>
+                    <p style="margin: 0; font-size: 0.9em; color: #333;">
+                        <strong>Navigation Tip:</strong> Click on any folder icon (📁/📂) to expand or collapse that category of questions.
+                    </p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Add a container with a light background to group the controls
+            with st.container():
+                st.markdown("""
+                <style>
+                .control-container {
+                    background-color: #f9f9f9; 
+                    border: 1px solid #e6e6e6;
+                    border-radius: 8px; 
+                    padding: 10px 15px; 
+                    margin-bottom: 15px;
+                }
+                .control-heading {
+                    font-size: 0.85em;
+                    color: #666;
+                    margin-bottom: 8px;
+                    font-weight: 500;
+                }
+                </style>
+                <div class="control-container">
+                    <div class="control-heading">CATEGORY CONTROLS</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Add controls to expand/collapse all categories
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("📂 Show All Questions", key="expand_all", help="Show questions in all categories", use_container_width=True):
+                        # Set all categories to expanded
+                        for category in categories.keys():
+                            st.session_state.category_states[category] = False
                         st.rerun()
+                with col2:
+                    if st.button("📁 Hide All Questions", key="collapse_all", help="Hide questions to save space", use_container_width=True):
+                        # Set all categories to collapsed
+                        for category in categories.keys():
+                            st.session_state.category_states[category] = True
+                        st.rerun()
+                
+            # Display questions by category with collapsible sections
+            for category, questions in categories.items():
+                # Check if this category is collapsed in session state
+                is_collapsed = st.session_state.category_states.get(category, False)
+                collapsed_class = "collapsed" if is_collapsed else ""
+                
+                # Create divider above each category except the first one
+                if list(categories.keys()).index(category) > 0:
+                    st.markdown("<hr style='margin: 10px 0 5px 0; border: 0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
+                
+                # Create the toggle button for each category with better styling and icons
+                # Add question count to each category
+                question_count = len(questions)
+                
+                # Set icon based on category
+                category_icon = ""
+                if category == "Patient Info":
+                    category_icon = "👤"
+                elif category == "Medical Data":
+                    category_icon = "📊"
+                elif category == "Treatment & Medications":
+                    category_icon = "💊"
+                elif category == "Clinical Questions":
+                    category_icon = "🏥"
+                elif category == "Care Management":
+                    category_icon = "📝"
+                
+                # Create toggle text with folder icon, category icon, category name, and count
+                toggle_text = f"{'📁' if is_collapsed else '📂'} {category_icon} {category} ({question_count})"
+                    
+                if st.button(
+                    toggle_text, 
+                    key=f"toggle_{category.replace(' ', '_')}",
+                    type="secondary",
+                    use_container_width=True
+                ):
+                    # Toggle the collapsed state for this category
+                    st.session_state.category_states[category] = not is_collapsed
+                    st.rerun()
+                
+                # Only show the questions if the category is not collapsed
+                if not is_collapsed:
+                
+                    # Create a container for the questions with indentation and visual grouping
+                    # Define category-specific border color
+                    border_color = "#e6e6e6"  # Default
+                    if category == "Patient Info":
+                        border_color = "#4285f4"  # Blue
+                    elif category == "Medical Data":
+                        border_color = "#0f9d58"  # Green
+                    elif category == "Treatment & Medications":
+                        border_color = "#db4437"  # Red
+                    elif category == "Clinical Questions":
+                        border_color = "#f4b400"  # Yellow
+                    elif category == "Care Management":
+                        border_color = "#9c27b0"  # Purple
+                        
+                    with st.container():
+                        st.markdown(f"""
+                        <div style="margin-left: 10px; border-left: 2px solid {border_color}; padding-left: 15px; margin-bottom: 10px;">
+                        """, unsafe_allow_html=True)
+                        
+                        # Display all questions in this category
+                        for i, q in enumerate(questions):
+                            if st.button(q, key=f"question_{category}_{i}"):
+                                # Add user message to chat history
+                                st.session_state.messages.append({"role": "user", "content": q})
+                                
+                                # Display the user message
+                                with st.chat_message("user"):
+                                    st.markdown(q)
+                                
+                                # Generate assistant response
+                                with st.chat_message("assistant"):
+                                    with st.spinner("Processing question..."):
+                                        try:
+                                            # Using a synchronous client instead of async
+                                            response = httpx.post(
+                                                f"{API_URL}/answer",
+                                                json={"question": q},
+                                                timeout=60.0
+                                            )
+                                            
+                                            if response.status_code == 200:
+                                                data = response.json()
+                                                message_placeholder = st.empty()
+                                                message_placeholder.markdown(data["answer"])
+                                                
+                                                # Add assistant response to chat history
+                                                st.session_state.messages.append({"role": "assistant", "content": data["answer"]})
+                                                
+                                                # Show sources
+                                                with st.expander("View Sources"):
+                                                    st.subheader("Sources")
+                                                    for j, source in enumerate(data["sources"]):
+                                                        with st.expander(f"Source {j+1}"):
+                                                            st.write(source["text"])
+                                                            if "metadata" in source:
+                                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                            else:
+                                                st.error(f"Error: {response.text}")
+                                                st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {response.text}"})
+                                        except Exception as e:
+                                            st.error(f"Error: {str(e)}")
+                                            st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {str(e)}"})
+                                
+                                # Force a rerun to update the UI after processing
+                                st.rerun()
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
 
     elif page == "Analysis":
         st.header("Patient Data Analysis")
