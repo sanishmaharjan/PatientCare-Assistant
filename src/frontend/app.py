@@ -49,7 +49,44 @@ with st.sidebar:
     
     # Sidebar navigation
     st.title("Navigation")
-    page = st.radio("Select a page", ["Dashboard", "Q&A", "Analysis"])
+    
+    # Initialize page in session state if not present
+    if "page" not in st.session_state:
+        st.session_state.page = "Dashboard"
+    
+    # Navigation list with styled buttons
+    st.markdown("""
+    <style>
+    div.nav-item {margin-bottom: 8px;}
+    div.nav-item button {
+        width: 100%;
+        text-align: left;
+        font-weight: 500;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    div.nav-item button.active {
+        background-color: #4CAF50 !important;
+        color: white !important;
+    }
+    div.nav-item button:hover:not(.active) {
+        background-color: #f0f0f0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Create navigation items
+    for nav_item in ["Dashboard", "Q&A", "Analysis"]:
+        button_class = "active" if st.session_state.page == nav_item else ""
+        if st.button(nav_item, key=f"nav_{nav_item}", use_container_width=True, 
+                   help=f"Go to {nav_item} page"):
+            st.session_state.page = nav_item
+            st.rerun()
+    
+    # Use the page from session state
+    page = st.session_state.page
 
 # Only show content if logged in
 if not st.session_state.get("logged_in", False):
@@ -368,16 +405,17 @@ Patient has maintained good glycemic control through medication compliance and d
         Ask questions about patient records, and the system will retrieve relevant information.
         """)
         
-        # Create a two-column layout for the main content and suggested questions
-        main_col, suggested_col = st.columns([2, 1])
+        # Chat interface
+        if "messages" not in st.session_state:
+            st.session_state.messages = [
+                {"role": "assistant", "content": "I'm your medical assistant. How can I help you today?"}
+            ]
         
-        with main_col:
-            # Chat interface
-            if "messages" not in st.session_state:
-                st.session_state.messages = [
-                    {"role": "assistant", "content": "I'm your medical assistant. How can I help you today?"}
-                ]
-            
+        # Create a two-column layout for the main content area
+        chat_col, suggested_col = st.columns([3, 2])
+        
+        # Display chat messages in the first column
+        with chat_col:
             # Display chat messages
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
@@ -423,7 +461,7 @@ Patient has maintained good glycemic control through medication compliance and d
                             st.error(f"Error: {str(e)}")
                             st.session_state.messages.append({"role": "assistant", "content": f"I'm sorry, an error occurred: {str(e)}"})
         
-        # Suggested questions in the second column
+        # Display suggested questions in the second column
         with suggested_col:
             st.subheader("Suggested Questions")
             st.markdown("""
@@ -718,6 +756,7 @@ Patient has maintained good glycemic control through medication compliance and d
                     st.rerun()
                 
                 # Only show the questions if the category is not collapsed
+                
                 if not is_collapsed:
                 
                     # Create a container for the questions with indentation and visual grouping
