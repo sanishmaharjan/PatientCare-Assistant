@@ -5,6 +5,7 @@ Streamlit frontend for PatientCare Assistant.
 import os
 import sys
 import json
+import time
 from typing import Dict, List, Any, Optional
 import pandas as pd
 import streamlit as st
@@ -16,7 +17,49 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import API_HOST, API_PORT
 
 # API endpoint - Python 3 string formatting
-API_URL = f"http://{API_HOST}:{API_PORT}"
+# Use localhost for frontend to API communication even though API binds to 0.0.0.0
+API_URL = f"http://localhost:{API_PORT}"
+
+# Default timeout for API requests (in seconds)
+API_TIMEOUT = 60.0
+
+def api_request(endpoint, data=None, method="post", timeout=None):
+    """
+    Helper function to make API requests with consistent error handling
+    
+    Args:
+        endpoint: API endpoint (without the base URL)
+        data: Dictionary of data to send (for POST requests)
+        method: HTTP method (default: post)
+        timeout: Request timeout in seconds (defaults to API_TIMEOUT)
+        
+    Returns:
+        Tuple of (success, response_data, error_message)
+    """
+    if timeout is None:
+        timeout = API_TIMEOUT
+        
+    url = f"{API_URL}/{endpoint.lstrip('/')}"
+    
+    try:
+        if method.lower() == "post":
+            response = httpx.post(url, json=data, timeout=timeout)
+        elif method.lower() == "get":
+            response = httpx.get(url, params=data, timeout=timeout)
+        else:
+            return False, None, f"Unsupported HTTP method: {method}"
+        
+        if response.status_code == 200:
+            return True, response.json(), None
+        else:
+            return False, None, f"API error: {response.status_code} - {response.text}"
+            
+    except httpx.TimeoutException:
+        return False, None, f"API request timed out after {timeout} seconds. The server might be busy or unreachable."
+    except httpx.ConnectError:
+        return False, None, "Cannot connect to API server. Please check if the server is running."
+    except Exception as e:
+        return False, None, f"Error connecting to API: {str(e)}"
 
 # Page configuration
 st.set_page_config(
@@ -73,11 +116,15 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     # Create navigation items
-    for nav_item in ["Dashboard", "Q&A", "Analysis"]:
-        button_class = "active" if st.session_state.page == nav_item else ""
-        if st.button(nav_item, key=f"nav_{nav_item}", use_container_width=True, 
+    navigation_items = ["Dashboard", "Q&A", "Upload Data"]
+    nav_display_labels = {"Dashboard": "Dashboard", "Q&A": "Q&A", "Upload Data": "Upload Data"}
+    nav_page_values = {"Dashboard": "Dashboard", "Q&A": "Q&A", "Upload Data": "Analysis"}
+    
+    for nav_item in navigation_items:
+        button_class = "active" if st.session_state.page == nav_page_values[nav_item] else ""
+        if st.button(nav_display_labels[nav_item], key=f"nav_{nav_item}", use_container_width=True, 
                    help=f"Go to {nav_item} page"):
-            st.session_state.page = nav_item
+            st.session_state.page = nav_page_values[nav_item]
             st.rerun()
     
     # Use the page from session state
@@ -322,74 +369,50 @@ Patient has maintained good glycemic control through medication compliance and d
                 if summary_button:
                     st.subheader("Patient Summary")
                     with st.spinner("Generating patient summary..."):
-                        try:
-                            # Direct API call to the actual endpoint
-                            response = httpx.post(
-                                f"{API_URL}/summary",
-                                json={"patient_id": selected_patient_id},
-                                timeout=30.0
-                            )
+                        success, data, error = api_request("summary", {"patient_id": selected_patient_id})
+                        
+                        if success:
+                            # Display the summary
+                            st.markdown(data["summary"])
                             
-                            if response.status_code == 200:
-                                # Parse the API response
-                                data = response.json()
-                                
-                                # Display the summary
-                                st.markdown(data["summary"])
-                                
-                                # Display sources if available
-                                if "sources" in data and data["sources"]:
-                                    with st.expander("View Source Documents"):
-                                        st.subheader("Sources")
-                                        for i, source in enumerate(data["sources"]):
-                                            with st.expander(f"Source {i+1}"):
-                                                st.write(source["text"])
-                                                if "metadata" in source:
-                                                    st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                                                    if "date" in source["metadata"]:
-                                                        st.caption(f"Date: {source['metadata']['date']}")
-                            else:
-                                st.error(f"Error retrieving patient data: {response.status_code}")
-                                st.error(response.text)
-                        except Exception as e:
-                            st.error(f"Error connecting to API: {str(e)}")
-                            st.info("Please make sure the API server is running at " + API_URL)
+                            # Display sources if available
+                            if "sources" in data and data["sources"]:
+                                with st.expander("View Source Documents"):
+                                    st.subheader("Sources")
+                                    for i, source in enumerate(data["sources"]):
+                                        with st.expander(f"Source {i+1}"):
+                                            st.write(source["text"])
+                                            if "metadata" in source:
+                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                                if "date" in source["metadata"]:
+                                                    st.caption(f"Date: {source['metadata']['date']}")
+                        else:
+                            st.error(error)
+                            st.info(f"Please make sure the API server is running at {API_URL}")
                 
                 if issues_button:
                     st.subheader("Potential Health Issues")
                     with st.spinner("Identifying health issues..."):
-                        try:
-                            # Direct API call to health-issues endpoint
-                            response = httpx.post(
-                                f"{API_URL}/health-issues",
-                                json={"patient_id": selected_patient_id},
-                                timeout=30.0
-                            )
+                        success, data, error = api_request("health-issues", {"patient_id": selected_patient_id})
                             
-                            if response.status_code == 200:
-                                # Parse the API response
-                                data = response.json()
-                                
-                                # Display the health issues
-                                st.markdown(data["issues"])
-                                
-                                # Display sources if available
-                                if "sources" in data and data["sources"]:
-                                    with st.expander("View Source Documents"):
-                                        st.subheader("Sources")
-                                        for i, source in enumerate(data["sources"]):
-                                            with st.expander(f"Source {i+1}"):
-                                                st.write(source["text"])
-                                                if "metadata" in source:
-                                                    st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
-                                                    if "date" in source["metadata"]:
-                                                        st.caption(f"Date: {source['metadata']['date']}")
-                            else:
-                                st.error(f"Error retrieving health issues: {response.status_code}")
-                                st.error(response.text)
-                        except Exception as e:
-                            st.error(f"Error connecting to API: {str(e)}")
-                            st.info("Please make sure the API server is running at " + API_URL)
+                        if success:
+                            # Display the health issues
+                            st.markdown(data["issues"])
+                            
+                            # Display sources if available
+                            if "sources" in data and data["sources"]:
+                                with st.expander("View Source Documents"):
+                                    st.subheader("Sources")
+                                    for i, source in enumerate(data["sources"]):
+                                        with st.expander(f"Source {i+1}"):
+                                            st.write(source["text"])
+                                            if "metadata" in source:
+                                                st.caption(f"Source: {source['metadata'].get('source', 'Unknown')}")
+                                                if "date" in source["metadata"]:
+                                                    st.caption(f"Date: {source['metadata']['date']}")
+                        else:
+                            st.error(error)
+                            st.info(f"Please make sure the API server is running at {API_URL}")
             
             # Add some spacing and separation
             st.markdown("---")
@@ -635,7 +658,7 @@ Patient has maintained good glycemic control through medication compliance and d
             .tip-box {
                 background-color: #f0f7ff; 
                 border-left: 4px solid #0066cc; 
-                padding: 10px 15px; 
+                padding-left: 10px; 
                 margin: 10px 0 15px; 
                 border-radius: 0 4px 4px 0;
                 animation: pulse 2s infinite;
@@ -806,106 +829,478 @@ Patient has maintained good glycemic control through medication compliance and d
                         st.markdown("</div>", unsafe_allow_html=True)
 
     elif page == "Analysis":
-        st.header("Patient Data Analysis")
+        st.header("Patient Data Upload")
         st.markdown("""
-        Upload patient documents for analysis or explore existing data.
+        Upload patient documents to add them to the system for analysis and retrieval.
         """)
         
-        # Analysis options
-        analysis_type = st.selectbox(
-            "Select Analysis Type",
-            ["Document Upload", "Lab Results Trends", "Medication Effectiveness", "Population Health"]
-        )
+        # Enhanced document upload interface
+        upload_col1, upload_col2 = st.columns([3, 2])
         
-        if analysis_type == "Document Upload":
-            # File upload section
-            st.subheader("Upload Patient Documents")
-            upload_col1, upload_col2 = st.columns([2, 1])
+        with upload_col1:
+            st.markdown("""
+            <div style="border-left: 4px solid #4CAF50; padding-left: 10px; margin-bottom: 20px;">
+                <p>Upload patient documents to make them searchable in the system. Documents will be processed through 
+                the following pipeline:</p>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li><strong>Document parsing</strong>: Extract text from various file formats</li>
+                    <li><strong>Text chunking</strong>: Break content into manageable segments</li>
+                    <li><strong>Embedding generation</strong>: Create vector representations</li>
+                    <li><strong>Vector indexing</strong>: Add to searchable database</li>
+                </ol>
+            </div>
+            """, unsafe_allow_html=True)
             
-            with upload_col1:
-                uploaded_files = st.file_uploader("Upload patient documents", type=["pdf", "docx", "txt"], accept_multiple_files=True)
+            # Add clean-up option
+            if "show_cleanup" not in st.session_state:
+                st.session_state.show_cleanup = False
+            
+            col1a, col1b = st.columns([5, 1])
+            with col1b:
+                if st.button("⚙️", help="Advanced options"):
+                    st.session_state.show_cleanup = not st.session_state.show_cleanup
+            
+            if st.session_state.show_cleanup:
+                with st.expander("Vector Database Management", expanded=True):
+                    st.markdown("**Reset Document Database**")
+                    st.caption("This will remove all processed documents and clear the vector database.")
+                    if st.button("🗑️ Reset Document Database", use_container_width=True):
+                        with st.spinner("Resetting database..."):
+                            try:
+                                # Use API endpoint to reset database
+                                with httpx.Client() as client:
+                                    response = client.post(
+                                        f"{API_URL}/documents/reset",
+                                        timeout=30.0
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        st.success("Database reset successfully!")
+                                    else:
+                                        st.error(f"Error resetting database: {response.text}")
+                                
+                                time.sleep(1)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error resetting database: {str(e)}")
+            
+            uploaded_files = st.file_uploader(
+                "Drag and drop files here", 
+                type=["pdf", "docx", "txt", "md"], 
+                accept_multiple_files=True,
+                help="Upload patient documents to make them searchable"
+            )
                 
-                if uploaded_files:
-                    st.success(f"{len(uploaded_files)} file(s) uploaded successfully")
-                    for file in uploaded_files:
-                        st.info(f"File: {file.name}")
+            if uploaded_files:
+                st.success(f"{len(uploaded_files)} file(s) uploaded successfully")
+                
+                # Show file list with improved styling
+                st.markdown("<strong>Uploaded files:</strong>", unsafe_allow_html=True)
+                for file in uploaded_files:
+                    icon = "📄"
+                    if file.name.endswith('.pdf'):
+                        icon = "📕"
+                    elif file.name.endswith(('.docx', '.doc')):
+                        icon = "📘"
+                    elif file.name.endswith('.md'):
+                        icon = "📝"
                     
-                    process_button = st.button("Process Documents")
-                    if process_button:
-                        with st.spinner("Processing documents... This may take a minute."):
-                            st.info("Document processing simulation (no actual backend processing)")
-                            st.success("Documents processed and embeddings generated")
-            
-            with upload_col2:
-                st.info("Supported Formats")
-                st.write("- PDF (.pdf)")
-                st.write("- Word (.docx, .doc)")
-                st.write("- Text (.txt)")
-                st.write("- Markdown (.md)")
+                    st.markdown(f"{icon} {file.name}", unsafe_allow_html=True)
                 
-                with st.expander("Processing Steps"):
-                    st.write("1. Document parsing")
-                    st.write("2. Text extraction")
-                    st.write("3. Chunking")
-                    st.write("4. Embedding generation")
-                    st.write("5. Vector database indexing")
+                process_col1, process_col2 = st.columns([1, 2])
+                with process_col1:
+                    process_button = st.button("📥 Process Documents", use_container_width=True)
+                    
+                if process_button:
+                    with st.spinner("Processing documents... This may take a minute."):
+                        # Initialize progress elements with better styling
+                        progress_col = st.container()
+                        with progress_col:
+                            progress_bar = st.progress(0)
+                            progress_text = st.empty()
+                            status_container = st.container()
+                        
+                        try:
+                            # Upload files to API
+                            progress_text.text("📤 Uploading files to server...")
+                            uploaded_filenames = []
+                            upload_status = []
+                            
+                            for i, file in enumerate(uploaded_files):
+                                # Create a temporary status for this file
+                                with status_container:
+                                    st.caption(f"⏳ Uploading {file.name}...")
+                                
+                                # Upload each file to the API
+                                with httpx.Client() as client:
+                                    files = {"file": (file.name, file.getvalue(), file.type)}
+                                    response = client.post(
+                                        f"{API_URL}/documents/upload",
+                                        files=files
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        data = response.json()
+                                        uploaded_filenames.append(data["filename"])
+                                        upload_status.append(f"✅ {file.name}")
+                                    else:
+                                        upload_status.append(f"❌ {file.name}: {response.text}")
+                                
+                                # Update progress
+                                progress_bar.progress((i + 1) / len(uploaded_files) * 0.4)  # First 40%
+                            
+                            # Show upload summary
+                            with status_container:
+                                for status in upload_status:
+                                    st.caption(status)
+                            
+                            # Process all documents
+                            if uploaded_filenames:
+                                # Update progress stages
+                                progress_text.text("📄 Parsing documents...")
+                                progress_bar.progress(0.5)  # 50%
+                                time.sleep(0.5)  # Small delay for UX
+                                
+                                progress_text.text("✂️ Chunking text...")
+                                progress_bar.progress(0.6)  # 60%
+                                time.sleep(0.5)  # Small delay for UX
+                                
+                                progress_text.text("🧠 Generating embeddings...")
+                                progress_bar.progress(0.7)  # 70%
+                                
+                                # Call the actual processing endpoint
+                                with httpx.Client() as client:
+                                    response = client.post(
+                                        f"{API_URL}/documents/process",
+                                        timeout=180.0  # Longer timeout for processing
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        data = response.json()
+                                        
+                                        progress_text.text("🗄️ Indexing vector database...")
+                                        progress_bar.progress(0.9)  # 90%
+                                        time.sleep(0.5)  # Small delay for UX
+                                        
+                                        progress_bar.progress(1.0)
+                                        progress_text.text("✅ Processing complete!")
+                                        
+                                        with status_container:
+                                            st.success(f"Successfully processed {len(uploaded_filenames)} document(s)")
+                                            # Show processed files
+                                            if "processed_files" in data:
+                                                for file in data["processed_files"]:
+                                                    st.caption(f"✅ Processed: {os.path.basename(file)}")
+                                    else:
+                                        progress_bar.progress(1.0)
+                                        progress_text.text("❌ Processing error!")
+                                        with status_container:
+                                            st.error(f"Error processing documents: {response.text}")
+                            else:
+                                progress_bar.progress(1.0)
+                                progress_text.text("⚠️ No files uploaded!")
+                                with status_container:
+                                    st.warning("No files were uploaded successfully.")
+                                
+                            # Refresh document list
+                            st.info("You can now ask questions about these documents in the Q&A section")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+                            progress_bar.progress(1.0)
+                            progress_text.text("Error occurred during processing")
         
-        elif analysis_type == "Lab Results Trends":
-            st.subheader("Lab Results Trends")
+        with upload_col2:
+            # Supported formats with nicer styling
+            st.markdown("""
+            <style>
+            .format-box {
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            .format-header {
+                font-weight: bold;
+                color: #4CAF50;
+                margin-bottom: 10px;
+            }
+            .format-item {
+                display: flex;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+            .format-icon {
+                margin-right: 10px;
+                font-size: 1.2em;
+            }
+            </style>
+            <div class="format-box">
+                <div class="format-header">📁 SUPPORTED FORMATS</div>
+                <div class="format-item"><span class="format-icon">📕</span> PDF (.pdf)</div>
+                <div class="format-item"><span class="format-icon">📘</span> Word (.docx, .doc)</div>
+                <div class="format-item"><span class="format-icon">📄</span> Text (.txt)</div>
+                <div class="format-item"><span class="format-icon">📝</span> Markdown (.md)</div>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Demo data for visualization
-            patient_select = st.selectbox("Select Patient", ["PATIENT-12345", "PATIENT-12346", "PATIENT-12347"])
-            metric = st.selectbox("Select Metric", ["HbA1c", "Blood Glucose", "Cholesterol", "Blood Pressure"])
-            
-            # Show demo chart
-            st.subheader(f"{metric} Trend - Patient {patient_select}")
-            
-            # Demo data
-            chart_data = pd.DataFrame({
-                'Date': pd.date_range(start='1/1/2025', periods=6, freq='M'),
-                'Value': [7.2, 7.0, 6.8, 6.9, 6.7, 6.5]
-            })
-            st.line_chart(chart_data.set_index('Date'))
-            
-            if metric == "HbA1c":
-                st.info("HbA1c target range: 7% - 6.4%")
-                st.success("Patient showing improvement trend over time")
+            # Processing steps with improved styling
+            with st.expander("How document processing works"):
+                st.markdown("""
+                <ol style="padding-left: 20px;">
+                    <li><strong>Document parsing:</strong> Extracting text content from various file formats</li>
+                    <li><strong>Text extraction:</strong> Converting documents to machine-readable format</li>
+                    <li><strong>Chunking:</strong> Breaking text into manageable segments for analysis</li>
+                    <li><strong>Embedding generation:</strong> Creating vector representations of text</li>
+                    <li><strong>Vector database indexing:</strong> Organizing data for fast retrieval</li>
+                </ol>
+                """, unsafe_allow_html=True)
         
-        elif analysis_type == "Medication Effectiveness":
-            st.subheader("Medication Effectiveness Analysis")
-            
-            medication = st.selectbox("Select Medication", ["Metformin", "Lisinopril", "Atorvastatin"])
-            st.write(f"Analyzing effectiveness of {medication} across patient population")
-            
-            # Demo visualization
-            effect_data = pd.DataFrame({
-                'Effectiveness': ['Highly Effective', 'Moderately Effective', 'Minimal Effect', 'No Effect'],
-                'Percentage': [45, 30, 15, 10]
-            })
-            st.bar_chart(effect_data.set_index('Effectiveness'))
-            
-            with st.expander("Detailed Analysis"):
-                st.write(f"{medication} shows a 75% overall effectiveness rate across the patient population.")
-                st.write("Side effects were reported in 15% of patients.")
-                st.write("Recommended adjustments to dosage based on patient response patterns.")
+        # Add a section for viewing existing documents in the system
+        st.markdown("---")
+        st.subheader("Existing Documents")
         
+        # Get document data from API
+        try:
+            with st.spinner("Loading documents..."):
+                with httpx.Client() as client:
+                    response = client.get(
+                        f"{API_URL}/documents",
+                        timeout=10.0
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        documents = data["documents"]
+                        
+                        # Format dates more nicely
+                        for doc in documents:
+                            if "added" in doc:
+                                try:
+                                    # Parse API date format and convert to friendly format
+                                    date_obj = datetime.strptime(doc["added"], "%Y-%m-%d %H:%M:%S")
+                                    doc["added"] = date_obj.strftime("%B %d, %Y")
+                                except:
+                                    # Keep original if parsing fails
+                                    pass
+                    else:
+                        st.error(f"Error loading documents: {response.text}")
+                        documents = []
+        except Exception as e:
+            st.error(f"Error connecting to API: {str(e)}")
+            documents = []
+            
+        # Convert to dataframe for display
+        docs_df = pd.DataFrame(documents)
+        
+        # Display table of documents
+        st.dataframe(docs_df, use_container_width=True, hide_index=True)
+        
+        # Add selection checkboxes to the dataframe
+        if len(docs_df) > 0:
+            # Add a selection column
+            docs_df.insert(0, 'select', False)
+            
+            # Create an editable dataframe with checkboxes and improved display
+            edited_df = st.data_editor(
+                docs_df,
+                column_config={
+                    "select": st.column_config.CheckboxColumn(
+                        "Select",
+                        help="Select document",
+                        default=False,
+                    ),
+                    "filename": st.column_config.TextColumn(
+                        "Document Name",
+                        help="The name of the document",
+                        width="medium"
+                    ),
+                    "added": st.column_config.TextColumn(
+                        "Added",
+                        help="Date when the document was added",
+                        width="small"
+                    ),
+                    "size": st.column_config.TextColumn(
+                        "Size",
+                        help="Size of the document",
+                        width="small"
+                    ),
+                    "type": st.column_config.TextColumn(
+                        "Type",
+                        help="Type of document",
+                        width="small"
+                    ),
+                    "status": st.column_config.TextColumn(
+                        "Status",
+                        help="Processing status",
+                        width="small"
+                    )
+                },
+                use_container_width=True,
+                hide_index=True,
+                num_rows="fixed"
+            )
         else:
-            st.subheader("Population Health Overview")
+            st.info("No documents found. Upload documents to see them here.")
+            edited_df = docs_df
+        
+        # Add download/management options
+        manage_col1, manage_col2, manage_col3 = st.columns(3)
+        with manage_col1:
+            search_button = st.button("🔍 Search Documents", use_container_width=True)
+            if search_button:
+                st.session_state.page = "Q&A"
+                st.rerun()
+        with manage_col2:
+            remove_button = st.button("🗑️ Remove Selected", use_container_width=True)
+            # Handle document removal
+            if remove_button and len(edited_df) > 0:
+                selected = edited_df[edited_df['select'] == True]
+                if len(selected) > 0:
+                    with st.spinner(f"Removing {len(selected)} document(s)..."):
+                        try:
+                            success_count = 0
+                            
+                            # Delete each selected file via API
+                            with httpx.Client() as client:
+                                for _, row in selected.iterrows():
+                                    filename = row['filename']
+                                    
+                                    # Find files with this filename
+                                    response = client.delete(
+                                        f"{API_URL}/documents/{filename}",
+                                        timeout=10.0
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        success_count += 1
+                                    else:
+                                        st.error(f"Error removing {filename}: {response.text}")
+                            
+                            if success_count > 0:
+                                st.success(f"Removed {success_count} document(s)")
+                                time.sleep(1)
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error removing documents: {str(e)}")
+                else:
+                    st.info("No documents selected")
+        with manage_col3:
+            download_button = st.button("📥 Download Selected", use_container_width=True)
+            # Handle document download
+            if download_button and len(edited_df) > 0:
+                selected = edited_df[edited_df['select'] == True]
+                if len(selected) > 0:
+                    import os
+                    import zipfile
+                    import io
+                    from pathlib import Path
+                    
+                    # Create a zip file in memory
+                    zip_buffer = io.BytesIO()
+                    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                        raw_dir = Path(os.path.join(base_dir, "data", "raw"))
+                        
+                        # Add selected documents to the zip file
+                        files_added = 0
+                        for _, row in selected.iterrows():
+                            # Find the actual filename in the raw directory
+                            filename = row['filename']
+                            for file_path in raw_dir.glob("*"):
+                                if filename in file_path.name:
+                                    zip_file.write(file_path, arcname=filename)
+                                    files_added += 1
+                                    
+                    if files_added > 0:
+                        # Offer the zip file for download
+                        zip_buffer.seek(0)
+                        st.download_button(
+                            label="Download ZIP",
+                            data=zip_buffer,
+                            file_name="patient_documents.zip",
+                            mime="application/zip",
+                            key="download_zip"
+                        )
+                    else:
+                        st.warning("No files found for download")
+                else:
+                    st.info("No documents selected")
             
-            # Demo data
-            st.write("Top 5 Conditions in Patient Population")
-            conditions_data = pd.DataFrame({
-                'Condition': ['Hypertension', 'Type 2 Diabetes', 'Hyperlipidemia', 'Obesity', 'Depression'],
-                'Percentage': [42, 38, 35, 28, 22]
-            })
-            st.bar_chart(conditions_data.set_index('Condition'))
+        # Usage statistics
+        st.markdown("---")
+        st.subheader("Document Storage Statistics")
+        
+        # Create two columns for stats
+        stats_col1, stats_col2 = st.columns(2)
+        
+        with stats_col1:
+            # Calculate actual metrics
+            import os
+            from pathlib import Path
             
-            st.subheader("Age Distribution")
-            age_data = pd.DataFrame({
-                'Age Group': ['18-30', '31-45', '46-60', '61-75', '76+'],
-                'Count': [45, 120, 210, 175, 90]
-            })
-            st.bar_chart(age_data.set_index('Age Group'))
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            raw_dir = Path(os.path.join(base_dir, "data", "raw"))
+            processed_dir = Path(os.path.join(base_dir, "data", "processed"))
+            vector_db_dir = Path(os.path.join(processed_dir, "vector_db"))
+            
+            # Count documents
+            raw_count = len([f for f in raw_dir.glob("*") if f.is_file() and not f.name.startswith('.')])
+            processed_count = len([f for f in processed_dir.glob("*_chunks.json")])
+            
+            # Calculate storage size
+            def get_dir_size(path):
+                total = 0
+                if path.exists():
+                    for f in path.glob('**/*'):
+                        if f.is_file():
+                            total += f.stat().st_size
+                return total
+            
+            raw_size = get_dir_size(raw_dir)
+            db_size = get_dir_size(vector_db_dir)
+            total_size = raw_size + get_dir_size(processed_dir)
+            
+            # Format sizes
+            def format_size(size_bytes):
+                if size_bytes < 1024:
+                    return f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    return f"{size_bytes / 1024:.1f} KB"
+                else:
+                    return f"{size_bytes / (1024 * 1024):.1f} MB"
+            
+            # Get most recent file date
+            most_recent = "No uploads"
+            if raw_count > 0:
+                all_files = list(raw_dir.glob("*"))
+                if all_files:
+                    most_recent_file = max(all_files, key=lambda p: p.stat().st_mtime)
+                    most_recent_time = most_recent_file.stat().st_mtime
+                    now = datetime.now().timestamp()
+                    days_ago = (now - most_recent_time) / (60 * 60 * 24)
+                    
+                    if days_ago < 0.04:  # Less than 1 hour
+                        most_recent = "Just now"
+                    elif days_ago < 1:
+                        hours_ago = int(days_ago * 24)
+                        most_recent = f"{hours_ago} hour{'s' if hours_ago != 1 else ''} ago"
+                    else:
+                        days_ago = int(days_ago)
+                        most_recent = f"{days_ago} day{'s' if days_ago != 1 else ''} ago"
+            
+            # Display metrics
+            st.metric(label="Total Documents", value=str(raw_count))
+            st.metric(label="Storage Used", value=format_size(total_size))
+        
+        with stats_col2:
+            # Display more metrics
+            pending_count = raw_count - processed_count
+            pending_delta = f"{pending_count} pending" if pending_count > 0 else None
+            
+            st.metric(label="Documents Processed", value=str(processed_count), delta=pending_delta)
+            st.metric(label="Last Upload", value=most_recent)
 
 # Footer
 st.markdown("---")

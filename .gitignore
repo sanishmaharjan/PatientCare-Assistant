@@ -78,3 +78,7 @@ tmp/
 # Model files and cached data
 .cache/
 .models/
+
+# data files
+data/raw/
+data/processed

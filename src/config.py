@@ -25,7 +25,7 @@ CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
 # API settings
-API_HOST = "localhost"
+API_HOST = "localhost"  # Use localhost for frontend connections
 API_PORT = 8000
 
 # Frontend settings

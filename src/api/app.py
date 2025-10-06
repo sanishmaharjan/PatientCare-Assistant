@@ -5,16 +5,18 @@ Using FastAPI.
 
 import os
 import sys
+import json
 import logging
 import time
 import contextlib
 from typing import Dict, List, Any, Optional
 
 # FastAPI for modern API development
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
+import uuid
 
 # Local imports - use modern import style
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -89,6 +91,24 @@ class HealthIssuesResponse(BaseModel):
     patient_id: str = Field(..., description="The patient ID")
     issues: str = Field(..., description="Identified potential health issues")
     sources: List[SourceDocument] = Field(default_factory=list, description="Source documents used to identify issues")
+
+
+class DocumentInfo(BaseModel):
+    filename: str = Field(..., description="The original filename")
+    added: str = Field(..., description="Date when the document was added")
+    size: str = Field(..., description="Size of the document")
+    type: str = Field(..., description="Type of document")
+    status: str = Field(..., description="Processing status")
+
+
+class DocumentListResponse(BaseModel):
+    documents: List[DocumentInfo] = Field(default_factory=list, description="List of documents")
+
+
+class ProcessingResponse(BaseModel):
+    success: bool = Field(..., description="Whether processing was successful")
+    message: str = Field(..., description="Status message")
+    processed_files: List[str] = Field(default_factory=list, description="List of processed files")
 
 
 # Define lifespan context for startup/shutdown events (modern approach)
@@ -275,6 +295,250 @@ async def get_health_issues(request: PatientRequest, medical_chain: MedicalChain
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/documents/process")
+async def process_documents():
+    """Process all documents in the raw directory."""
+    logger.info("Processing documents from raw directory")
+    start_time = time.time()
+    
+    try:
+        from pathlib import Path
+        
+        # Define paths
+        base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        raw_dir = base_dir / "data" / "raw"
+        processed_dir = base_dir / "data" / "processed"
+        
+        # Make sure directories exist
+        os.makedirs(raw_dir, exist_ok=True)
+        os.makedirs(processed_dir, exist_ok=True)
+        
+        # Import necessary modules
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from ingestion.document_processor import DocumentIngestion
+        from embedding.embedding_generator import EmbeddingGenerator
+        
+        # Process documents
+        ingestion = DocumentIngestion(str(raw_dir), str(processed_dir))
+        processed_files = ingestion.process_directory()
+        
+        # Count chunks
+        chunk_count = 0
+        for processed_file in processed_files:
+            output_path = os.path.join(
+                processed_dir,
+                f"{os.path.basename(processed_file)}_chunks.json"
+            )
+            if os.path.exists(output_path):
+                with open(output_path, 'r') as f:
+                    chunks = json.load(f)
+                    chunk_count += len(chunks)
+        
+        # Generate embeddings
+        embedding_generator = EmbeddingGenerator()
+        embedding_generator.process_all_documents(str(processed_dir))
+        
+        process_time = time.time() - start_time
+        logger.info(f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks in {process_time:.2f}s")
+        
+        return {
+            "success": True,
+            "message": f"Successfully processed {len(processed_files)} documents with {chunk_count} chunks",
+            "processed_files": processed_files,
+            "chunk_count": chunk_count,
+            "processing_time_seconds": round(process_time, 2)
+        }
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Error processing documents: {str(e)} after {process_time:.2f}s")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/documents", response_model=DocumentListResponse)
+async def list_documents():
+    """Get a list of documents in the system."""
+    logger.info("Listing documents")
+    start_time = time.time()
+    
+    try:
+        import os
+        import datetime
+        from pathlib import Path
+        
+        # Define paths
+        base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        raw_dir = base_dir / "data" / "raw"
+        processed_dir = base_dir / "data" / "processed"
+        
+        # Function to determine document type
+        def get_document_type(filename):
+            ext = filename.split('.')[-1].lower()
+            if ext == 'pdf':
+                return "Medical Records"
+            elif ext in ['docx', 'doc']:
+                return "Medical Notes"
+            elif ext == 'txt':
+                return "Lab Results"
+            elif ext == 'md':
+                return "Patient History"
+            else:
+                return "Other"
+        
+        # Function for human-readable file sizes
+        def get_size_format(size_bytes):
+            if size_bytes < 1024:
+                return f"{size_bytes} B"
+            elif size_bytes < 1024 * 1024:
+                return f"{size_bytes / 1024:.1f} KB"
+            else:
+                return f"{size_bytes / (1024 * 1024):.1f} MB"
+        
+        documents = []
+        if raw_dir.exists():
+            for file_path in raw_dir.glob("*"):
+                if not file_path.name.startswith('.') and file_path.is_file():
+                    stats = file_path.stat()
+                    # Check if it has been processed
+                    is_processed = any(
+                        (processed_dir / f).name.startswith(file_path.name) 
+                        for f in os.listdir(processed_dir) 
+                        if f.endswith('_chunks.json')
+                    )
+                    
+                    documents.append({
+                        "filename": file_path.name,
+                        "added": datetime.datetime.fromtimestamp(stats.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                        "size": get_size_format(stats.st_size),
+                        "type": get_document_type(file_path.name),
+                        "status": "Processed" if is_processed else "Raw"
+                    })
+        
+        process_time = time.time() - start_time
+        logger.info(f"Found {len(documents)} documents in {process_time:.4f}s")
+        
+        return {"documents": documents}
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Error listing documents: {str(e)} after {process_time:.4f}s")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/documents/{filename}")
+async def delete_document(filename: str):
+    """Delete a document from the system."""
+    logger.info(f"Deleting document: {filename}")
+    start_time = time.time()
+    
+    try:
+        import os
+        from pathlib import Path
+        
+        # Define paths
+        base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        raw_dir = base_dir / "data" / "raw"
+        processed_dir = base_dir / "data" / "processed"
+        
+        # Find and remove the raw file
+        raw_file = raw_dir / filename
+        if raw_file.exists():
+            raw_file.unlink()
+        
+        # Find and remove processed chunks
+        for processed_file in processed_dir.glob(f"{filename}_chunks.json"):
+            processed_file.unlink()
+        
+        process_time = time.time() - start_time
+        logger.info(f"Successfully deleted document {filename} in {process_time:.4f}s")
+        
+        return {"success": True, "message": f"Successfully deleted {filename}"}
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Error deleting document {filename}: {str(e)} after {process_time:.4f}s")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    """Upload a document to the raw directory."""
+    logger.info(f"Uploading document: {file.filename}")
+    start_time = time.time()
+    
+    try:
+        # Define paths
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        raw_dir = os.path.join(base_dir, "data", "raw")
+        
+        # Make sure directory exists
+        os.makedirs(raw_dir, exist_ok=True)
+        
+        # Generate a unique filename to prevent collisions
+        unique_filename = f"{uuid.uuid4()}_{file.filename}"
+        file_path = os.path.join(raw_dir, unique_filename)
+        
+        # Save the file
+        with open(file_path, "wb") as f:
+            contents = await file.read()
+            f.write(contents)
+        
+        process_time = time.time() - start_time
+        logger.info(f"Successfully uploaded document {file.filename} in {process_time:.4f}s")
+        
+        return {
+            "success": True,
+            "message": f"Successfully uploaded {file.filename}",
+            "filename": unique_filename
+        }
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Error uploading document {file.filename}: {str(e)} after {process_time:.4f}s")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/documents/reset")
+async def reset_vector_database():
+    """Reset the vector database by clearing all documents from raw and processed directories."""
+    logger.info("Resetting vector database")
+    start_time = time.time()
+    
+    try:
+        from pathlib import Path
+        import shutil
+        
+        # Define paths
+        base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        raw_dir = base_dir / "data" / "raw"
+        processed_dir = base_dir / "data" / "processed"
+        vector_db_dir = processed_dir / "vector_db"
+        
+        # Clear raw directory
+        if raw_dir.exists():
+            for file in raw_dir.glob("*"):
+                if file.is_file():
+                    file.unlink()
+        
+        # Clear processed directory
+        if processed_dir.exists():
+            for file in processed_dir.glob("*_chunks.json"):
+                file.unlink()
+        
+        # Clear vector database
+        if vector_db_dir.exists():
+            shutil.rmtree(vector_db_dir)
+            os.makedirs(vector_db_dir)
+        
+        process_time = time.time() - start_time
+        logger.info(f"Successfully reset vector database in {process_time:.2f}s")
+        
+        return {
+            "success": True,
+            "message": "Vector database reset successfully"
+        }
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Error resetting vector database: {str(e)} after {process_time:.2f}s")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def start_api(log_level="info"):
     """
     Start the API server.
@@ -283,7 +547,9 @@ def start_api(log_level="info"):
         log_level: Logging level (debug, info, warning, error, critical)
     """
     logger.info(f"Starting API server on {API_HOST}:{API_PORT} with log level {log_level.upper()}")
-    uvicorn.run("app:app", host=API_HOST, port=API_PORT, reload=True, log_config=None)
+    # Bind to all interfaces (0.0.0.0) regardless of what's in config.py
+    # This ensures the API is accessible from other machines if needed
+    uvicorn.run("app:app", host="0.0.0.0", port=API_PORT, reload=True, log_config=None)
 
 
 if __name__ == "__main__":
