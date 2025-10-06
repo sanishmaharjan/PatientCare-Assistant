@@ -1299,6 +1299,7 @@ Patient has maintained good glycemic control through medication compliance and d
                             
                             if response.status_code == 200:
                                 st.success("Database reset successfully!")
+                                st.rerun()
                             else:
                                 st.error(f"Error resetting database: {response.text}")
 
