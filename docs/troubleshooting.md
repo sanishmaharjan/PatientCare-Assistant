@@ -10,7 +10,7 @@ If you encounter "Error connecting to API: [Errno 60] Operation timed out" or si
    ```bash
    curl http://localhost:8000/
    # Or use the control script
-   ./control.sh --status
+   ./scripts/control.sh --status
    ```
 
 2. **Server Binding Issues**: The API server may be binding only to localhost. Verify the configuration:
@@ -21,10 +21,10 @@ If you encounter "Error connecting to API: [Errno 60] Operation timed out" or si
 
 3. **Restart Services**: Use the control script for clean restart:
    ```bash
-   ./control.sh --restart
+   ./scripts/control.sh --restart
    # Or restart specific services
-   ./control.sh --restart --api
-   ./control.sh --restart --frontend
+   ./scripts/control.sh --restart --api
+   ./scripts/control.sh --restart --frontend
    ```
 
 4. **Check Dependencies**: Ensure all required packages are installed:
@@ -40,8 +40,8 @@ Common document processing problems and solutions:
 1. **ChromaDB Database Conflicts**: If you see database lock errors:
    ```bash
    # Stop all processes and restart
-   ./control.sh --stop
-   ./control.sh --start
+   ./scripts/control.sh --stop
+   ./scripts/control.sh --start
    ```
 
 2. **Missing Document Dependencies**: For PDF processing issues:
@@ -52,7 +52,7 @@ Common document processing problems and solutions:
 3. **Large Document Processing**: For memory issues with large documents:
    - Documents are automatically chunked to prevent memory issues
    - Increase chunk size if needed in `src/config.py`
-   - Use the clean processing script: `./run_processing.sh`
+   - Use the clean processing script: `./scripts/run_processing.sh`
 
 4. **Patient ID Extraction Failures**: If patient IDs are not being detected:
    - Check that documents contain valid patient ID patterns (PATIENT-XXXXX)
@@ -62,7 +62,7 @@ Common document processing problems and solutions:
    ```bash
    # Clear and rebuild the vector database
    rm -rf data/processed/vector_db
-   ./run_processing.sh
+   ./scripts/run_processing.sh
    ```
 
 ## 🚀 Quick Resolution Commands
@@ -70,16 +70,16 @@ Common document processing problems and solutions:
 ### Complete System Reset
 ```bash
 # Stop all services
-./control.sh --stop
+./scripts/control.sh --stop
 
 # Clean restart with document reprocessing
-./run_all.sh
+./scripts/run_all.sh
 ```
 
 ### Minimal Startup (No warnings)
 ```bash
 # Process documents cleanly
-./run_processing.sh
+./scripts/run_processing.sh
 
 # Start servers manually
 python src/main.py --api &

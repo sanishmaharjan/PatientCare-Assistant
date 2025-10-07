@@ -92,7 +92,7 @@ The application follows a robust, modular architecture designed for healthcare e
 ## Setup
 
 ### Prerequisites
-- Python 3.8 or newer
+- Python 3.8 or newer (currently optimized for Python 3.13+)
 - OpenAI API key or compatible LLM API
 - Docker and Docker Compose (optional, for containerized deployment)
 
@@ -106,8 +106,8 @@ git clone git@github.com:sanishmaharjan/PatientCare-Assistant.git
 cd patientcare-assistant
 
 # Run the setup script (creates venv and installs dependencies)
-chmod +x setup_python3.sh
-./setup_python3.sh
+chmod +x scripts/setup_python3.sh
+./scripts/setup_python3.sh
 
 # Activate the virtual environment if not already activated
 source venv_py3/bin/activate  # On Windows: venv_py3\Scripts\activate
@@ -117,20 +117,20 @@ cp src/.env.example src/.env
 # Edit src/.env to add your OpenAI API key
 
 # Run the application (all-in-one launcher)
-chmod +x run_all.sh
-./run_all.sh
+chmod +x scripts/run_all.sh
+./scripts/run_all.sh
 
 # Or use individual scripts for more control:
 # Process documents only
-./run_processing.sh
+./scripts/run_processing.sh
 
 # Start API and frontend servers
-./run_servers.sh
+./scripts/run_servers.sh
 
 # Or use the control script for server management
-./control.sh --start    # Start both servers
-./control.sh --stop     # Stop both servers
-./control.sh --status   # Check server status
+./scripts/control.sh --start    # Start both servers
+./scripts/control.sh --stop     # Stop both servers
+./scripts/control.sh --status   # Check server status
 
 # See docs/launcher-scripts.md for more options
 ```
@@ -208,6 +208,16 @@ Use the improved control script to manage API and frontend servers:
 ```
 
 For complete server management documentation, see [Server Management Guide](docs/server-management.md).
+
+## 📁 Scripts Directory
+
+All shell scripts are organized in the `scripts/` directory. For a complete overview of available scripts and their usage, see [Scripts README](scripts/README.md).
+
+**Quick Reference:**
+- `./scripts/run_all.sh` - Complete system setup and launch
+- `./scripts/control.sh --status` - Check server status  
+- `./scripts/run_processing.sh` - Process documents only
+- `./scripts/setup_python3.sh` - Initial environment setup
 ./control.sh --stop --frontend
 ./control.sh --restart --frontend
 ```
@@ -229,6 +239,7 @@ The API is available at http://localhost:8000 with the following endpoints:
 patientcare-assistant/
 ├─ README.md
 ├─ requirements.txt
+├─ scripts/         # Shell scripts for setup and management
 ├─ data/
 │  ├─ raw/          # Original patient documents
 │  └─ processed/    # Processed chunks and embeddings
@@ -246,6 +257,10 @@ patientcare-assistant/
 ### Running Tests
 
 ```bash
+# Use the test script
+./scripts/run_tests.sh
+
+# Or run directly with pytest
 pytest tests/
 ```
 

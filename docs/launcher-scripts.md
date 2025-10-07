@@ -4,7 +4,7 @@ This document describes the various launcher scripts available for running the P
 
 ## Available Scripts
 
-### 1. `run_all.sh` - All-in-One Launcher (Recommended)
+### 1. `scripts/run_all.sh` - All-in-One Launcher (Recommended)
 
 This script provides a complete solution for running the PatientCare Assistant application:
 - Sets up the environment
@@ -14,10 +14,10 @@ This script provides a complete solution for running the PatientCare Assistant a
 - Suppresses unnecessary warnings
 
 ```bash
-./run_all.sh
+./scripts/run_all.sh
 ```
 
-### 2. `run_processing.sh` - Document Processing
+### 2. `scripts/run_processing.sh` - Document Processing
 
 This script focuses solely on document processing:
 - Sets up the environment
@@ -25,10 +25,10 @@ This script focuses solely on document processing:
 - Provides clear success/failure indication
 
 ```bash
-./run_processing.sh
+./scripts/run_processing.sh
 ```
 
-### 3. `run_servers.sh` - Server Launcher
+### 3. `scripts/run_servers.sh` - Server Launcher
 
 This script starts the API and frontend servers:
 - Checks port availability
@@ -36,20 +36,20 @@ This script starts the API and frontend servers:
 - Provides clear success/failure indication
 
 ```bash
-./run_servers.sh
+./scripts/run_servers.sh
 ```
 
-### 4. `control.sh` - Server Control
+### 4. `scripts/control.sh` - Server Control
 
 Legacy script for managing servers:
 - Allows starting, stopping, and restarting servers
 - Provides server status information
 
 ```bash
-./control.sh --start    # Start both servers
-./control.sh --stop     # Stop both servers
-./control.sh --restart  # Restart both servers
-./control.sh --status   # Check server status
+./scripts/control.sh --start    # Start both servers
+./scripts/control.sh --stop     # Stop both servers
+./scripts/control.sh --restart  # Restart both servers
+./scripts/control.sh --status   # Check server status
 ```
 
 ### 5. Direct Python Commands

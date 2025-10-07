@@ -4,47 +4,47 @@ This document provides information on how to manage the PatientCare Assistant se
 
 ## Using the Control Script
 
-For command-line management, the `control.sh` script provides an easy way to manage the PatientCare Assistant servers.
+For command-line management, the `scripts/control.sh` script provides an easy way to manage the PatientCare Assistant servers.
 
 ### Basic Commands
 
 ```bash
 # Start both servers
-./control.sh --start
+./scripts/control.sh --start
 
 # Stop both servers
-./control.sh --stop
+./scripts/control.sh --stop
 
 # Restart both servers
-./control.sh --restart
+./scripts/control.sh --restart
 
 # Check server status
-./control.sh --status
+./scripts/control.sh --status
 ```
 
 ### Managing Specific Servers
 
 ```bash
 # Only manage API server
-./control.sh --start --api
-./control.sh --stop --api
-./control.sh --restart --api
+./scripts/control.sh --start --api
+./scripts/control.sh --stop --api
+./scripts/control.sh --restart --api
 
 # Only manage Frontend server
-./control.sh --start --frontend
-./control.sh --stop --frontend
-./control.sh --restart --frontend
+./scripts/control.sh --start --frontend
+./scripts/control.sh --stop --frontend
+./scripts/control.sh --restart --frontend
 ```
 
 ### Advanced Options
 
 ```bash
 # Enable verbose output for debugging
-./control.sh --start --verbose
-./control.sh --status --verbose
+./scripts/control.sh --start --verbose
+./scripts/control.sh --status --verbose
 
 # Get help about command usage
-./control.sh --help
+./scripts/control.sh --help
 ```
 
 ## Advanced Server Management
