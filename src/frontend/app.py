@@ -6,9 +6,9 @@ Refactored modular version.
 import streamlit as st
 from core.config import PAGE_CONFIG, APP_TITLE, APP_DESCRIPTION
 from components.navigation import render_navigation, render_authentication, render_footer
-from pages.dashboard import render_dashboard
-from pages.qa import render_qa  
-from pages.upload import render_upload
+from page_modules.dashboard import render_dashboard
+from page_modules.qa import render_qa  
+from page_modules.upload import render_upload
 
 
 def main():

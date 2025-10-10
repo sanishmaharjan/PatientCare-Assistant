@@ -31,6 +31,7 @@ def render_chat_interface():
         with st.chat_message("assistant"):
             _process_chat_response(prompt)
 
+        st.rerun()
 
 def _process_chat_response(prompt):
     """Process chat response from API."""

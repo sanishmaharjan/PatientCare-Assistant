@@ -27,7 +27,7 @@ def render_navigation():
             
             if st.button(nav_display_labels[nav_item], 
                         key=f"nav_{nav_item}", 
-                        use_container_width=True,
+                        width="stretch",
                         type=button_type,
                         help=f"Go to {nav_item} page"):
                 st.session_state.page = nav_page_values[nav_item]
