@@ -33,6 +33,38 @@ If you encounter "Error connecting to API: [Errno 60] Operation timed out" or si
    pip install -r requirements.txt
    ```
 
+5. **Manual API Start**: If the control script fails, you can start the API manually:
+   ```bash
+   cd src/api
+   source ../../venv_py3/bin/activate
+   python app.py
+   ```
+
+## 🎉 Recent Fixes and Updates
+
+### API Service Startup Issue (RESOLVED)
+**Date Fixed**: October 10, 2025
+**Issue**: `./scripts/control.sh --start --api` was failing to start the API service due to import path issues in `src/api/app.py`
+**Resolution**: Fixed the Python import path in the modular API startup script. The API now starts correctly via both:
+- Control script: `./scripts/control.sh --start --api`
+- Direct execution: `cd src/api && python app.py`
+
+**Verification**: Test that the API is working:
+```bash
+curl http://localhost:8000/docs
+curl -X POST "http://localhost:8000/summary" -H "Content-Type: application/json" -d '{"patient_id": "PATIENT-12346"}'
+```
+
+## 🔧 Known Issues and Fixes
+
+### API Service Import Path Issue (Fixed)
+**Problem**: The API fails to start with `ModuleNotFoundError: No module named 'api'`
+**Solution**: This has been fixed in the modular API version. The import paths in `src/api/app.py` have been corrected.
+
+### Server Control Process Detection
+**Problem**: The control script may not correctly detect running API processes
+**Workaround**: The API will still start and function correctly even if the status detection is not perfect. You can verify the API is running by testing: `curl http://localhost:8000/`
+
 ## 📄 Document Processing Issues
 
 Common document processing problems and solutions:
