@@ -2,8 +2,8 @@
 Chat component for PatientCare Assistant Q&A interface.
 """
 
-import streamlit as st
 import httpx
+import streamlit as st
 from core.config import API_URL
 
 
