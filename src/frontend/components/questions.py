@@ -3,7 +3,9 @@ Suggested questions component for Q&A interface.
 """
 
 import streamlit as st
+import os
 from utils.data import QA_CATEGORIES, CATEGORY_ICONS, CATEGORY_BORDER_COLORS
+from utils.helpers import load_css_file
 from styles.styles import QA_STYLES_CSS
 from components.chat import handle_suggested_question
 
@@ -11,6 +13,10 @@ from components.chat import handle_suggested_question
 def render_suggested_questions():
     """Render the suggested questions sidebar."""
     st.subheader("Suggested Questions")
+    
+    # Load external CSS files
+    css_path = os.path.join(os.path.dirname(__file__), '..', 'styles', 'questions.css')
+    load_css_file(css_path)
     
     # Add styles for question buttons and category toggle buttons
     st.markdown(QA_STYLES_CSS, unsafe_allow_html=True)
@@ -35,32 +41,10 @@ def render_suggested_questions():
 def _render_navigation_tip():
     """Render the navigation tip box."""
     st.markdown("""
-    <style>
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.4); }
-        70% { box-shadow: 0 0 0 6px rgba(0, 102, 204, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0); }
-    }
-    .tip-box {
-        background-color: #f0f7ff; 
-        border-left: 4px solid #0066cc; 
-        padding-left: 10px; 
-        margin: 10px 0 15px; 
-        border-radius: 0 4px 4px 0;
-        animation: pulse 2s infinite;
-        display: flex;
-        align-items: center;
-    }
-    .tip-icon {
-        font-size: 1.5em;
-        margin-right: 10px;
-        color: #0066cc;
-    }
-    </style>
     <div class="tip-box">
         <div class="tip-icon">💡</div>
         <div>
-            <p style="margin: 0; font-size: 0.9em; color: #333;">
+            <p class="tip-text">
                 <strong>Navigation Tip:</strong> Click on any folder icon (📁/📂) to expand or collapse that category of questions.
             </p>
         </div>
@@ -71,34 +55,16 @@ def _render_navigation_tip():
 def _render_category_controls():
     """Render expand/collapse all controls."""
     with st.container():
-        st.markdown("""
-        <style>
-        .control-container {
-            background-color: #f9f9f9; 
-            border: 1px solid #e6e6e6;
-            border-radius: 8px; 
-            padding: 10px 15px; 
-            margin-bottom: 15px;
-        }
-        .control-heading {
-            font-size: 0.85em;
-            color: #666;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
         # Add controls to expand/collapse all categories
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📂 Show All Questions", key="expand_all", help="Show questions in all categories", use_container_width=True):
+            if st.button("📂 Show All Questions", key="expand_all", help="Show questions in all categories", width="stretch"):
                 # Set all categories to expanded
                 for category in QA_CATEGORIES.keys():
                     st.session_state.category_states[category] = False
                 st.rerun()
         with col2:
-            if st.button("📁 Hide All Questions", key="collapse_all", help="Hide questions to save space", use_container_width=True):
+            if st.button("📁 Hide All Questions", key="collapse_all", help="Hide questions to save space", width="stretch"):
                 # Set all categories to collapsed
                 for category in QA_CATEGORIES.keys():
                     st.session_state.category_states[category] = True
@@ -113,7 +79,7 @@ def _render_category_questions():
         
         # Create divider above each category except the first one
         if list(QA_CATEGORIES.keys()).index(category) > 0:
-            st.markdown("<hr style='margin: 10px 0 5px 0; border: 0; border-top: 1px solid #eaeaea;'>", unsafe_allow_html=True)
+            st.markdown('<hr class="category-divider">', unsafe_allow_html=True)
         
         # Create the toggle button for each category with better styling and icons
         question_count = len(questions)
@@ -126,7 +92,7 @@ def _render_category_questions():
             toggle_text, 
             key=f"toggle_{category.replace(' ', '_')}",
             type="secondary",
-            use_container_width=True
+            width="stretch"
         ):
             # Toggle the collapsed state for this category
             st.session_state.category_states[category] = not is_collapsed
@@ -143,8 +109,17 @@ def _render_category_question_list(category, questions):
     border_color = CATEGORY_BORDER_COLORS.get(category, "#e6e6e6")
     
     with st.container():
+        # Apply dynamic border color using CSS custom property
         st.markdown(f"""
-        <div style="margin-left: 10px; border-left: 2px solid {border_color}; padding-left: 15px; margin-bottom: 10px;">
+        <style>
+        .question-list-container-{category.replace(' ', '-').lower()} {{
+            margin-left: 10px; 
+            border-left: 2px solid {border_color}; 
+            padding-left: 15px; 
+            margin-bottom: 10px;
+        }}
+        </style>
+        <div class="question-list-container-{category.replace(' ', '-').lower()}">
         """, unsafe_allow_html=True)
         
         # Display all questions in this category

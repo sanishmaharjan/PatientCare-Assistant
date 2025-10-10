@@ -1,8 +1,10 @@
 """
 CSS styles and utilities for the Streamlit app
 
-Note: Navigation styles have been moved to styles/navigation.css
-and are loaded via the load_css_file() utility function.
+Note: Component-specific styles have been moved to external CSS files:
+- Navigation styles: styles/navigation.css
+- Questions component: styles/questions.css
+These are loaded via the load_css_file() utility function.
 """
 
 

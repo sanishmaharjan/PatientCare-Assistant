@@ -1,0 +1,62 @@
+/* Questions component styles */
+
+/* Navigation tip box with pulse animation */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 102, 204, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0); }
+}
+
+.tip-box {
+    background-color: #f0f7ff; 
+    border-left: 4px solid #0066cc; 
+    padding-left: 10px; 
+    margin: 10px 0 15px; 
+    border-radius: 0 4px 4px 0;
+    animation: pulse 2s infinite;
+    display: flex;
+    align-items: center;
+}
+
+.tip-icon {
+    font-size: 1.5em;
+    margin-right: 10px;
+    color: #0066cc;
+}
+
+.tip-text {
+    margin: 0; 
+    font-size: 0.9em; 
+    color: #333;
+}
+
+/* Category controls styling */
+.control-container {
+    background-color: #f9f9f9; 
+    border: 1px solid #e6e6e6;
+    border-radius: 8px; 
+    padding: 10px 15px; 
+    margin-bottom: 15px;
+}
+
+.control-heading {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+/* Category divider */
+.category-divider {
+    margin: 10px 0 5px 0; 
+    border: 0; 
+    border-top: 1px solid #eaeaea;
+}
+
+/* Question list container with category border */
+.question-list-container {
+    margin-left: 10px; 
+    padding-left: 15px; 
+    margin-bottom: 10px;
+    border-left: 2px solid var(--category-border-color, #e6e6e6);
+}
