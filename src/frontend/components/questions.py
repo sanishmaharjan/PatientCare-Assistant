@@ -4,7 +4,7 @@ Suggested questions component for Q&A interface.
 
 import streamlit as st
 from utils.data import QA_CATEGORIES, CATEGORY_ICONS, CATEGORY_BORDER_COLORS
-from templates.styles import QA_STYLES_CSS
+from styles.styles import QA_STYLES_CSS
 from components.chat import handle_suggested_question
 
 

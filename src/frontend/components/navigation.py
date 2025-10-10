@@ -3,7 +3,9 @@ Navigation component for PatientCare Assistant.
 """
 
 import streamlit as st
+import os
 from core.config import NAVIGATION_ITEMS, NAV_DISPLAY_LABELS, NAV_PAGE_VALUES, APP_TITLE
+from utils.helpers import load_css_file
 
 
 def render_navigation():
@@ -11,6 +13,10 @@ def render_navigation():
     with st.sidebar:
         # Title
         st.title("Navigation")
+        
+        # Load navigation CSS
+        css_path = os.path.join(os.path.dirname(__file__), '..', 'styles', 'navigation.css')
+        load_css_file(css_path)
         
         # Initialize page in session state if not present
         if "page" not in st.session_state:

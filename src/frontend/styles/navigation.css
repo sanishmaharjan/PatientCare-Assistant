@@ -1,0 +1,74 @@
+/* Navigation component styles */
+.nav-container {
+    padding: 0;
+    margin: 0;
+}
+
+.nav-item-container {
+    margin: 8px 0;
+    padding: 0;
+}
+
+/* Custom button styling to look like list items */
+.stButton > button {
+    width: 100%;
+    margin: 4px 0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+    color: #262730;
+    text-align: left;
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    background-color: #f0f2f6;
+    transform: translateX(4px);
+    border-color: #d0d0d0;
+}
+
+/* Active button styling */
+.stButton > button[data-testid*="primary"] {
+    background-color: #ff4b4b !important;
+    color: white !important;
+    border-color: #ff4b4b !important;
+    font-weight: bold;
+}
+
+/* Navigation list specific styles */
+.nav-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-item {
+    margin: 8px 0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+    color: #262730;
+}
+
+.nav-item:hover {
+    background-color: #f0f2f6;
+    transform: translateX(4px);
+    border-color: #d0d0d0;
+}
+
+.nav-item.active {
+    background-color: #ff4b4b;
+    color: white;
+    border-color: #ff4b4b;
+    font-weight: bold;
+}
+
+.nav-item.inactive {
+    background-color: #ffffff;
+    color: #262730;
+    border-color: #e0e0e0;
+}

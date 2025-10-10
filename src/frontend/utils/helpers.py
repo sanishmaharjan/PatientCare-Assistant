@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
-
+import streamlit as st
 
 def format_file_size(size_bytes: int) -> str:
     """Format file size in bytes to human readable format."""
@@ -106,3 +106,14 @@ def get_data_directories() -> Dict[str, Path]:
         'vector_db': project_root / "data" / "processed" / "vector_db",
         'sample_data': project_root / "data" / "sample-data"
     }
+
+def load_css_file(css_file_path: str) -> None:
+    """Load CSS file and inject it into Streamlit app."""
+    try:
+        with open(css_file_path, 'r') as f:
+            css_content = f.read()
+        st.markdown(f'<style>{css_content}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error(f"CSS file not found: {css_file_path}")
+    except Exception as e:
+        st.error(f"Error loading CSS file: {e}")

@@ -15,7 +15,7 @@ import httpx
 
 from core.config import API_URL
 from services.api_service import api_request
-from templates.styles import UPLOAD_STYLES_CSS
+from styles.styles import UPLOAD_STYLES_CSS
 from utils.helpers import (
     get_file_icon,
     format_file_size,
@@ -37,10 +37,10 @@ def render_upload():
     
     with upload_col1:
         _render_upload_instructions()
+        _render_supported_formats()
         _render_file_uploader()
     
     with upload_col2:
-        _render_supported_formats()
         _render_sample_data_section()
     
     # Add existing documents section
