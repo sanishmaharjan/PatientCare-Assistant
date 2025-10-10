@@ -220,7 +220,6 @@ All shell scripts are organized in the `scripts/` directory. For a complete over
 - `./scripts/setup_python3.sh` - Initial environment setup
 ./control.sh --stop --frontend
 ./control.sh --restart --frontend
-```
 
 ## API Documentation
 
