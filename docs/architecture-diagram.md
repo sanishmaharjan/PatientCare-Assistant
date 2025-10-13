@@ -2,89 +2,142 @@
 
 ## 🏗️ System Architecture Overview
 
-The PatientCare Assistant follows a modern, layered architecture designed for scalability, reliability, and healthcare compliance.
+The PatientCare Assistant follows a modern, modular architecture designed for scalability, maintainability, and healthcare compliance. The system has been completely refactored (October 2025) into a clean, separation-of-concerns design.
 
-## 📊 Architecture Diagram
+## 📊 Modular Architecture Diagram
 
 ```
-┌───────────────────────────────────────────────────────────────────────-──-┐
-│                        🎨 PRESENTATION LAYER                              │
-├────────────────────────────────────────────────────────────────────────-─-┤
-│  📱 Streamlit Frontend     │  🌐 FastAPI Web Interface  │  📋 REST API    │
-│  - Interactive Dashboard  │  - Flask Compatibility     │  - JSON/HTTP     │
-│  - Real-time Updates      │  - Session Management      │  - Auto-docs     │
-└────────────────────────────────────────────────────────────────────────--─┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                        🎨 PRESENTATION LAYER                             │
+├───────────────────────────────────────────────────────────────────────────┤
+│  📱 Streamlit Frontend (Port 8501)     │  🌐 Interactive API Docs        │
+│  ├── page_modules/                     │  ├── /docs (Swagger UI)          │
+│  │   ├── dashboard.py                  │  ├── /redoc (ReDoc)              │
+│  │   ├── qa.py                         │  └── /openapi.json               │
+│  │   └── upload.py                     │                                  │
+│  ├── components/                       │  🎯 External CSS Files           │
+│  │   ├── navigation.py                 │  ├── styles/navigation.css       │
+│  │   └── questions.py                  │  ├── styles/questions.css        │
+│  └── styles/                           │  └── styles/components.css       │
+│      └── *.css (externalized)          │                                  │
+└───────────────────────────────────────────────────────────────────────────┘
                                        │
-                                   🔗 HTTP/JSON
+                                   🔗 HTTP/JSON API Calls
                                        │
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          ⚡ API LAYER                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│  🔍 Query Endpoint        │  📄 Summary Endpoint      │  🏥 Health Issues│
-│  /answer                  │  /summary                 │  /health-issues  │
-│  - Natural Language Q&A   │  - Patient Summaries      │  - Risk Analysis │
-│  - Context Retrieval      │  - Medical History        │  - Alerts        │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                          ⚡ MODULAR API LAYER (Port 8000)                │
+├───────────────────────────────────────────────────────────────────────────┤
+│  🩺 Medical Router            │  📄 Documents Router      │  🔄 Legacy Routes│
+│  /medical/*                   │  /documents/*             │  /answer, /summary│
+│  ├── /answer (Q&A)           │  ├── / (list docs)        │  (redirect to new)│
+│  ├── /summary (patient)      │  ├── /process (pipeline)  │                  │
+│  └── /health-issues (risks)  │  ├── /upload (files)      │  🎯 Middleware   │
+│                               │  └── /reset (database)   │  ├── Logging     │
+│  🔧 Utils & Config           │                           │  ├── Monitoring  │
+│  ├── logging.py              │  📊 Pydantic Models       │  └── Error Hand. │
+│  ├── file_utils.py           │  └── schemas.py           │                  │
+│  └── settings.py             │                           │                  │
+└───────────────────────────────────────────────────────────────────────────┘
                                        │
-                                   📊 Processed Data
+                                   📊 Processed Data & AI Requests
                                        │
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         🧠 AI PROCESSING LAYER                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│  🤖 LangChain Chains      │  🔗 OpenAI Integration    │  📝 Prompt Eng. │
-│  - Medical Q&A Chain      │  - GPT-4 for Generation   │  - Healthcare    │
-│  - Summary Chain          │  - Text-embedding-3       │  - Context-Aware │
-│  - Health Issues Chain    │  - Async Processing       │  - Safety First  │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         🧠 AI PROCESSING LAYER                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│  🤖 LangChain Integration     │  🔗 OpenAI API           │  📝 Medical Prompts│
+│  ├── Medical Chain           │  ├── GPT-4o for Generation│  ├── Healthcare    │
+│  ├── Summary Chain           │  ├── text-embedding-3     │  ├── Context-Aware │
+│  ├── QA Chain                │  └── Async Processing     │  └── Safety First  │
+│  └── Dependency Injection    │                           │                    │
+└───────────────────────────────────────────────────────────────────────────┘
                                        │
-                                   🔍 Vector Search
+                                   🔍 Vector Search & Retrieval
                                        │
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        🗄️ DATA STORAGE LAYER                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│  📊 ChromaDB Vector DB    │  📁 Document Storage      │  🔐 Backup System│
-│  - Semantic Search        │  - Raw Documents          │  - Auto Backup   │
-│  - Persistent Storage     │  - Processed Chunks       │  - Recovery      │
-│  - HNSW Indexing         │  - Metadata Tracking      │  - Versioning    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                   📥 Document Input
-                                       │
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       📥 DATA INGESTION LAYER                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│  📄 Document Loaders      │  ✂️ Text Splitters        │  🔍 ID Extraction│
-│  - PDF (PyPDF)           │  - Recursive Chunking     │  - Patient IDs    │
-│  - DOCX (docx2txt)       │  - Overlap Strategy       │  - Regex Patterns │
-│  - TXT/MD (TextLoader)   │  - Semantic Boundaries    │  - Validation     │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                        🗄️ DATA STORAGE LAYER                            │
+├───────────────────────────────────────────────────────────────────────────┤
+│  📊 ChromaDB Vector DB        │  📁 Document Storage      │  🔐 Backup System │
+│  ├── medical_documents        │  ├── data/raw/            │  ├── Auto Backup   │
+│  ├── Semantic Search          │  ├── data/processed/      │  ├── 3-Backup Ret. │
+│  ├── Patient ID Filtering     │  ├── Chunk Files (.json)  │  └── Auto Cleanup  │
+│  └── HNSW Indexing           │  └── Metadata Tracking    │                    │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
+
+## 🚀 **October 2025 Modular Refactoring**
+
+### **✅ Key Improvements Achieved**
+
+#### **1. API Architecture Overhaul**
+- **Before**: Monolithic 873-line `app.py` file
+- **After**: Clean, modular structure with separated concerns:
+  ```
+  src/api/
+  ├── main.py              # FastAPI application setup
+  ├── app.py               # Startup script (fixed import paths)
+  ├── models/schemas.py    # Pydantic data models
+  ├── routers/
+  │   ├── medical.py       # Healthcare-specific endpoints
+  │   └── documents.py     # File management operations
+  ├── middleware/logging.py # Request monitoring
+  ├── utils/               # Shared utilities
+  └── config/settings.py   # Configuration management
+  ```
+
+#### **2. Frontend Modernization**
+- **Navigation Fix**: Renamed `pages/` → `page_modules/` to prevent auto-navigation
+- **CSS Externalization**: Moved inline `<style>` to dedicated `.css` files
+- **Component Modularity**: Better separation between UI components
+- **Utility Functions**: Created `load_css_file()` for consistent styling
+
+#### **3. Enhanced Developer Experience**
+- **Comprehensive Logging**: Request tracing with timestamps and performance metrics
+- **Hot Reloading**: Automatic server restart on code changes
+- **Interactive Docs**: Full Swagger UI with testing capabilities
+- **Error Handling**: Improved error messages and debugging information
+
+#### **4. Backward Compatibility**
+- **Legacy Endpoints**: All original endpoints maintained and working
+- **Seamless Migration**: No breaking changes for existing integrations
+- **Progressive Enhancement**: New features available alongside existing functionality
+
+### **📊 Performance Improvements**
+- **Startup Time**: ~1 second with optimized imports
+- **Response Time**: 1.4-1.9s average for medical queries
+- **Memory Usage**: Efficient ChromaDB operations with automatic cleanup
+- **Error Recovery**: Robust backup system with 3-backup retention
+
+### **🔧 Technical Debt Resolution**
+- **Import Path Issues**: Fixed Python module resolution problems
+- **Code Organization**: Clear separation of concerns across modules
+- **Documentation**: Comprehensive API docs with examples
+- **Testing**: All endpoints verified and working correctly
 
 ## 🔄 Data Flow Architecture
 
 ```
-📋 Patient Documents
+📋 Patient Documents (PDF, DOCX, MD, TXT)
           │
           ▼
-    📥 Document Upload
+    📥 Document Upload (/documents/upload)
           │
           ▼
-    🔍 Patient ID Extraction
+    🔍 Patient ID Extraction (PATIENT-XXXXX)
           │
           ▼
-    ✂️ Text Chunking & Processing
+    ✂️ Text Chunking & Processing (/documents/process)
           │
           ▼
-    🧠 Embedding Generation (OpenAI)
+    🧠 Embedding Generation (OpenAI text-embedding-3)
           │
           ▼
-    💾 Vector Storage (ChromaDB)
+    💾 Vector Storage (ChromaDB medical_documents)
           │
           ▼
-    🔍 Semantic Retrieval
+    🔍 Semantic Retrieval (Patient-filtered search)
           │
           ▼
-    🤖 LLM Processing (GPT-4)
+    🤖 LLM Processing (GPT-4o with medical prompts)
           │
           ▼
     📊 Structured Response

@@ -104,6 +104,10 @@ Common document processing problems and solutions:
 # Stop all services
 ./scripts/control.sh --stop
 
+# Clear and rebuild vector database (if needed)
+rm -rf data/processed/vector_db
+./scripts/run_processing.sh
+
 # Clean restart with document reprocessing
 ./scripts/run_all.sh
 ```
@@ -113,9 +117,69 @@ Common document processing problems and solutions:
 # Process documents cleanly
 ./scripts/run_processing.sh
 
-# Start servers manually
-python src/main.py --api &
-python src/main.py --frontend &
+# Start services individually
+./scripts/control.sh --start --api
+./scripts/control.sh --start --frontend
+
+# Or start manually if control script has issues
+cd src/api && source ../../venv_py3/bin/activate && python app.py &
+source venv_py3/bin/activate && streamlit run src/frontend/app.py --server.port 8501 &
+```
+
+### Quick Diagnostic Commands
+```bash
+# Check if services are responding
+curl http://localhost:8000/
+curl http://localhost:8501/
+
+# Test API functionality
+curl -X POST "http://localhost:8000/summary" \
+  -H "Content-Type: application/json" \
+  -d '{"patient_id": "PATIENT-12346"}'
+
+# Check process status
+./scripts/control.sh --status --verbose
+
+# View recent logs
+tail -f logs/api.log
+```
+
+## 🔍 Advanced Troubleshooting
+
+### Environment Issues
+```bash
+# Reset Python environment
+rm -rf venv_py3
+./scripts/setup_python3.sh
+
+# Check Python version (3.8+ required, 3.13+ recommended)
+python3 --version
+
+# Verify dependencies
+source venv_py3/bin/activate && pip list | grep -E "(fastapi|streamlit|langchain)"
+```
+
+### Data Directory Issues
+```bash
+# Check data directory structure
+ls -la data/
+ls -la data/raw/
+ls -la data/processed/
+
+# Reset data directories
+mkdir -p data/{raw,processed,sample-data}
+chmod -R 755 data/
+```
+
+### Port Conflicts
+```bash
+# Check what's using ports 8000 and 8501
+lsof -i :8000
+lsof -i :8501
+
+# Kill processes using these ports
+kill $(lsof -t -i:8000)
+kill $(lsof -t -i:8501)
 ```
 
 For additional troubleshooting and advanced configuration options, see the other documentation files in the `docs/` directory.
