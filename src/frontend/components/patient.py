@@ -76,11 +76,13 @@ def render_patient_card(patient_name, patient_id):
             st.caption(f"Last updated: {datetime.now().strftime('%B %d, %Y')}")
         
         # Add action buttons for patient
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             summary_button = st.button("📋 Generate Summary")
         with col2:
             issues_button = st.button("⚠️ Identify Health Issues")
+        with col3:
+            medician_button = st.button("💊 medications taking?")
         
         # Display information based on button clicks
         if summary_button:
@@ -90,6 +92,10 @@ def render_patient_card(patient_name, patient_id):
         if issues_button:
             st.subheader("⚠️ Potential Health Issues")
             display_patient_summary(patient_id, "health-issues")
+
+        if medician_button:
+            st.subheader("⚠️ Medications taking")
+            display_patient_summary(patient_id, "medician-taking")
     
     # Add some spacing and separation
     st.markdown("---")
